@@ -2,17 +2,29 @@ export type { Config } from "./config";
 export { loadConfig } from "./config";
 export type { ChatOptions, ModelClient } from "./model/client";
 export { OllamaClient } from "./model/ollama";
-export type { OllamaClientConfig } from "./model/ollama";
+export type { OllamaClientConfig, Usage } from "./model/ollama";
 export { ToolRegistry } from "./tools/registry";
 export { defineTool, ToolArgsError } from "./tools/tool";
 export type { Tool, ToolContext, ToolDefinition } from "./tools/tool";
 export { registerBuiltins } from "./tools/builtin";
 export { run } from "./loop/orchestrator";
-export type { RunEvent, RunOptions, RunResult, StopReason } from "./loop/orchestrator";
+export type {
+  RunEvent,
+  RunOptions,
+  RunResult,
+  StopReason,
+  ToolOutputCompressor,
+} from "./loop/orchestrator";
 export { buildSystemPrompt } from "./prompt/system";
 export type { PromptInput } from "./prompt/system";
-export { loadSkills, readSkillBody, parseFrontmatter, createLoadSkillTool } from "./skills";
-export type { Skill, Frontmatter } from "./skills";
+export { loadSkills, readSkillBody, createLoadSkillTool } from "./skills";
+export type { Skill } from "./skills";
+export { parseFrontmatter } from "./markdown/frontmatter";
+export type { Frontmatter } from "./markdown/frontmatter";
 export { loadContextFiles } from "./context/files";
 export type { ContextFile } from "./context/files";
+export { loadBundle, readConcept, writeConcept, appendLog, createKnowledgeTools } from "./knowledge";
+export type { OkfConcept, WriteConceptInput } from "./knowledge";
+export { LLMLinguaCompressor } from "./compress/llmlingua";
+export type { CompressResult, CompressOptions } from "./compress/llmlingua";
 export type { Message, Role, ToolCall, ToolSpec } from "./types";

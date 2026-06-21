@@ -1,0 +1,2 @@
+# Real LLMLingua prompt compression (pulls torch + transformers).
+llmlingua>=0.2.2

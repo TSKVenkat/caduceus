@@ -1,8 +1,11 @@
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { parseFrontmatter } from "../markdown/frontmatter";
+
+export { parseFrontmatter } from "../markdown/frontmatter";
+export type { Frontmatter } from "../markdown/frontmatter";
 
 /** A skill discovered on disk. Only metadata is held; the body is read on demand. */
 export interface Skill {
@@ -14,29 +17,10 @@ export interface Skill {
   path: string;
 }
 
-export interface Frontmatter {
-  data: Record<string, unknown>;
-  body: string;
-}
-
-const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-
 const metadataSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
 });
-
-/** Split a `---`-delimited YAML frontmatter block from the Markdown body. */
-export function parseFrontmatter(content: string): Frontmatter {
-  const match = FRONTMATTER.exec(content);
-  if (!match) {
-    return { data: {}, body: content.trim() };
-  }
-  const parsed: unknown = parseYaml(match[1] ?? "");
-  const data =
-    typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
-  return { data, body: (match[2] ?? "").trim() };
-}
 
 /**
  * Discover skills under a directory. Each skill is a subdirectory containing a

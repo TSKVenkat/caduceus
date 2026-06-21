@@ -1,4 +1,5 @@
 import type { ContextFile } from "../context/files";
+import type { OkfConcept } from "../knowledge/okf";
 import type { Skill } from "../skills/loader";
 import type { ToolRegistry } from "../tools/registry";
 
@@ -6,6 +7,7 @@ export interface PromptInput {
   registry: ToolRegistry;
   skills?: Skill[];
   contextFiles?: ContextFile[];
+  concepts?: OkfConcept[];
   now?: Date;
 }
 
@@ -18,6 +20,7 @@ export function buildSystemPrompt(input: PromptInput): string {
   const { registry } = input;
   const skills = input.skills ?? [];
   const contextFiles = input.contextFiles ?? [];
+  const concepts = input.concepts ?? [];
   const now = input.now ?? new Date();
 
   const sections: string[] = [];
@@ -51,6 +54,22 @@ export function buildSystemPrompt(input: PromptInput): string {
   // Context: project instruction files.
   for (const file of contextFiles) {
     sections.push([`## Project context: ${file.name}`, file.content].join("\n"));
+  }
+
+  // Context: OKF knowledge catalog (Level 1 — read_concept loads bodies on demand).
+  if (concepts.length > 0) {
+    sections.push(
+      [
+        "## Knowledge (OKF)",
+        "Curated knowledge about this workspace. Load a concept's full content with read_concept(id). Record durable new knowledge with write_concept and note notable changes with append_log.",
+        concepts
+          .map((concept) => {
+            const summary = concept.description ? `: ${concept.description}` : "";
+            return `- ${concept.id} (${concept.type})${summary}`;
+          })
+          .join("\n"),
+      ].join("\n"),
+    );
   }
 
   // Volatile: kept last so the prefix above remains stable.
