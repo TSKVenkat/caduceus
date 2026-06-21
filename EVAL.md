@@ -2,6 +2,8 @@
 
 How Caduceus is measured, and what the numbers say so far. Everything here is reproducible with `pnpm eval`; runs are live against Ollama Cloud (`qwen3-coder:480b-cloud` unless noted).
 
+> **Correction (important).** The "OKF knowledge layer" results below (Results 2–4) are **retracted as a comparative claim.** They compared Caduceus *with* a knowledge file against Aider *without* it — an unfair setup. When Aider is given the same file and told to read it, it passes too. Reading a Markdown file is not a capability any agent lacks. The honest current status: Caduceus is at **parity with Aider on standard coding tasks and slower**, with **no demonstrated advantage**. The sections are kept below for transparency, marked retracted.
+
 ## Methodology
 
 Tasks are data under `eval/tasks/<id>/`:
@@ -81,7 +83,9 @@ The Result 2/3 ablation used only 2 tasks — too small to trust. This is the sc
 
 The one no-knowledge pass was `conv-count-prefix` (its rule — prefix the length and a colon — is the most guessable). The confidence intervals do **not overlap**, and a Fisher's exact test (36/36 vs 0/36) gives p ≪ 0.0001: the effect is real, not noise.
 
-**Conclusion (the defensible claim):** across 108 controlled runs, the OKF knowledge layer takes project-convention tasks from ~0% (Aider, and Caduceus without it) to **100%**. The agent itself is not magic — *with the feature off it fails just like Aider does* — which is exactly what isolates the knowledge layer as the cause. With knowledge on, it solves each task in ~12.5 s and ~9.7k tokens on average.
+**RETRACTED — this comparison was not fair.** Aider scored 0% only because it was not given the knowledge file; Caduceus was. When Aider is handed the same convention file and told to read it, it passes (verified: 5/5 on a re-test). So the OKF layer provides **no capability advantage** over "put a Markdown file in the repo and read it" — something every coding agent (Aider included) already does. The 0% → 100% gap measured a setup asymmetry, not a feature. Do not cite this as a result.
+
+What remains true and fair: Caduceus reaches **parity with Aider on standard tasks** (both 10/10) and is **slower** (more round-trips). There is currently **no demonstrated advantage** of Caduceus over existing agents.
 
 Reproduce end to end: `node eval/generate-conventions.mjs && bash eval/run-full.sh`.
 
