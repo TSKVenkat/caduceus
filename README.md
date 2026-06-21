@@ -16,6 +16,10 @@ The system prompt is assembled in three tiers — **stable** (identity, tools, s
 
 Skills and knowledge are distinct layers built on one shared Markdown+frontmatter substrate (`src/markdown/frontmatter.ts`): Skills carry procedures and executable resources; OKF carries cross-linked facts the agent can read and maintain.
 
+## Context management
+
+The loop keeps the system prompt fixed (a stable, cacheable prefix) and watches the estimated size of the running history. Once it crosses `CADUCEUS_MAX_CONTEXT_TOKENS`, older turns are summarized into a single note while the system prompt, the task, and the most recent turns are kept verbatim — so long tasks don't overflow the model's context window. The cut is snapped to an assistant-message boundary so tool calls and their results are never split.
+
 ## Quick start
 
 ```bash
@@ -39,6 +43,8 @@ node dist/cli.js "your task"
 | `OLLAMA_BASE_URL` | `https://ollama.com/v1` | OpenAI-compatible endpoint |
 | `CADUCEUS_MODEL` | `qwen3-coder:480b-cloud` | Model id |
 | `CADUCEUS_MAX_STEPS` | `20` | Loop iteration budget |
+| `CADUCEUS_MAX_CONTEXT_TOKENS` | `32000` | Compact the history once its estimated size exceeds this |
+| `CADUCEUS_KEEP_RECENT` | `8` | Trailing messages kept verbatim when compacting |
 | `CADUCEUS_TEMPERATURE` | `0` | Sampling temperature |
 
 CLI flags `--model` and `--max-steps` override the environment.

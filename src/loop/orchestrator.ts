@@ -1,3 +1,4 @@
+import { compactIfNeeded } from "../context/compactor";
 import type { ModelClient } from "../model/client";
 import { buildSystemPrompt } from "../prompt/system";
 import { ToolArgsError } from "../tools/tool";
@@ -5,6 +6,7 @@ import type { ToolRegistry } from "../tools/registry";
 import type { Message, ToolCall } from "../types";
 
 const DEFAULT_MAX_STEPS = 20;
+const DEFAULT_MAX_CONTEXT_TOKENS = 32_000;
 const ERROR_STREAK_LIMIT = 3;
 
 export type StopReason = "done" | "max_steps" | "circuit_breaker";
@@ -13,7 +15,8 @@ export type RunEvent =
   | { type: "step"; n: number }
   | { type: "assistant"; content: string }
   | { type: "tool_call"; call: ToolCall }
-  | { type: "tool_result"; name: string; content: string; isError: boolean };
+  | { type: "tool_result"; name: string; content: string; isError: boolean }
+  | { type: "compaction"; tokensBefore: number; tokensAfter: number };
 
 export interface RunOptions {
   client: ModelClient;
@@ -21,6 +24,10 @@ export interface RunOptions {
   /** Prebuilt system prompt; falls back to a minimal prompt from the registry. */
   systemPrompt?: string;
   maxSteps?: number;
+  /** Compact the history once its estimated size exceeds this budget. */
+  maxContextTokens?: number;
+  /** Number of trailing messages to keep verbatim when compacting. */
+  keepRecent?: number;
   cwd?: string;
   signal?: AbortSignal;
   onEvent?: (event: RunEvent) => void;
@@ -41,12 +48,13 @@ export interface RunResult {
 export async function run(task: string, options: RunOptions): Promise<RunResult> {
   const { client, registry } = options;
   const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
+  const maxContextTokens = options.maxContextTokens ?? DEFAULT_MAX_CONTEXT_TOKENS;
   const cwd = options.cwd ?? process.cwd();
   const emit = options.onEvent ?? noop;
   const tools = registry.specs();
 
   const systemPrompt = options.systemPrompt ?? buildSystemPrompt({ registry });
-  const messages: Message[] = [
+  let messages: Message[] = [
     { role: "system", content: systemPrompt },
     { role: "user", content: task },
   ];
@@ -55,6 +63,21 @@ export async function run(task: string, options: RunOptions): Promise<RunResult>
 
   for (let step = 1; step <= maxSteps; step++) {
     emit({ type: "step", n: step });
+
+    const compaction = await compactIfNeeded(messages, {
+      client,
+      maxTokens: maxContextTokens,
+      ...(options.keepRecent ? { keepRecent: options.keepRecent } : {}),
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
+    if (compaction.compacted) {
+      messages = compaction.messages;
+      emit({
+        type: "compaction",
+        tokensBefore: compaction.tokensBefore,
+        tokensAfter: compaction.tokensAfter,
+      });
+    }
 
     const chatOptions = {
       tools,

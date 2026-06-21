@@ -76,6 +76,8 @@ async function main(): Promise<void> {
     registry,
     systemPrompt,
     maxSteps: config.maxSteps,
+    maxContextTokens: config.maxContextTokens,
+    keepRecent: config.keepRecent,
     onEvent: renderEvent,
   });
 
@@ -93,6 +95,11 @@ function renderEvent(event: RunEvent): void {
       return;
     case "tool_result":
       process.stderr.write(`  ${event.isError ? "✗" : "✓"} ${event.name}\n`);
+      return;
+    case "compaction":
+      process.stderr.write(
+        `  ~ compacted context (~${event.tokensBefore} → ~${event.tokensAfter} tokens)\n`,
+      );
       return;
     case "assistant":
       return;
