@@ -1,0 +1,1 @@
+Create a file named config.json in the current directory containing a JSON object with exactly these keys: "name" set to "caduceus" and "version" set to "1.0.0".

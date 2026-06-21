@@ -1,0 +1,1 @@
+Implement the fizzbuzz(n) function in fizzbuzz.js so the tests in fizzbuzz.test.js pass: multiples of 3 return "Fizz", multiples of 5 return "Buzz", multiples of both return "FizzBuzz", and any other number is returned as a string. Run `node fizzbuzz.test.js` to confirm.

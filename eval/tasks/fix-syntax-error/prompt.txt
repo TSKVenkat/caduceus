@@ -1,0 +1,1 @@
+app.js has a syntax error and will not parse. Fix it so that `node -c app.js` succeeds, keeping the program's intent the same.

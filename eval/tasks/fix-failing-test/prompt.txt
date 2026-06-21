@@ -1,0 +1,1 @@
+The test in sum.test.js is failing because sum.js has a bug. Fix sum.js so the tests pass, then run `node sum.test.js` to confirm.

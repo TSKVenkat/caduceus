@@ -1,0 +1,1 @@
+Rename the function `greet` to `sayHello` everywhere it is defined and used (in lib.js and main.js), keeping the behavior identical. Then run `node main.js` and confirm it prints "hello".
