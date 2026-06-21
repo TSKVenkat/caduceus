@@ -25,6 +25,7 @@ describe("buildSystemPrompt", () => {
       registry: registryWithEcho(),
       skills: [{ name: "summarize-diff", description: "Summarize changes.", dir: "/s", path: "/s/SKILL.md" }],
       contextFiles: [{ name: "AGENTS.md", content: "Project rules here." }],
+      concepts: [{ id: "tables/orders", type: "Table", description: "Orders.", path: "/k/tables/orders.md" }],
       now: new Date("2026-06-21T00:00:00.000Z"),
     });
 
@@ -33,14 +34,18 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("- summarize-diff: Summarize changes.");
     expect(prompt).toContain("## Project context: AGENTS.md");
     expect(prompt).toContain("Project rules here.");
+    expect(prompt).toContain("## Knowledge (OKF)");
+    expect(prompt).toContain("- tables/orders (Table): Orders.");
     expect(prompt).toContain("Current time: 2026-06-21T00:00:00.000Z");
 
     const skillsAt = prompt.indexOf("## Skills");
     const contextAt = prompt.indexOf("## Project context");
+    const knowledgeAt = prompt.indexOf("## Knowledge (OKF)");
     const timeAt = prompt.indexOf("Current time:");
     expect(skillsAt).toBeGreaterThan(-1);
     expect(skillsAt).toBeLessThan(contextAt);
-    expect(contextAt).toBeLessThan(timeAt);
+    expect(contextAt).toBeLessThan(knowledgeAt);
+    expect(knowledgeAt).toBeLessThan(timeAt);
   });
 
   it("omits the skills section when there are no skills", () => {

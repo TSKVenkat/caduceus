@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig } from "./config";
 import { loadContextFiles } from "./context/files";
+import { loadBundle } from "./knowledge/okf";
+import { createKnowledgeTools } from "./knowledge/tools";
 import { run, type RunEvent } from "./loop/orchestrator";
 import { OllamaClient } from "./model/ollama";
 import { buildSystemPrompt } from "./prompt/system";
@@ -45,21 +47,28 @@ async function main(): Promise<void> {
 
   const cwd = process.cwd();
   const skillsDir = resolve(cwd, process.env.CADUCEUS_SKILLS_DIR ?? "skills");
-  const [skills, contextFiles] = await Promise.all([loadSkills(skillsDir), loadContextFiles(cwd)]);
+  const knowledgeDir = resolve(cwd, process.env.CADUCEUS_KNOWLEDGE_DIR ?? "knowledge");
+  const [skills, contextFiles, concepts] = await Promise.all([
+    loadSkills(skillsDir),
+    loadContextFiles(cwd),
+    loadBundle(knowledgeDir),
+  ]);
 
   const registry = new ToolRegistry();
   registerBuiltins(registry);
   if (skills.length > 0) {
     registry.register(createLoadSkillTool(skills));
   }
-
-  if (skills.length > 0 || contextFiles.length > 0) {
-    process.stderr.write(
-      `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s)\n`,
-    );
+  // Knowledge tools are always available so the agent can author into an empty bundle.
+  for (const tool of createKnowledgeTools(knowledgeDir)) {
+    registry.register(tool);
   }
 
-  const systemPrompt = buildSystemPrompt({ registry, skills, contextFiles, now: new Date() });
+  process.stderr.write(
+    `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s)\n`,
+  );
+
+  const systemPrompt = buildSystemPrompt({ registry, skills, contextFiles, concepts, now: new Date() });
 
   const client = new OllamaClient(config);
   const result = await run(task, {

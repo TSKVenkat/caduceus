@@ -10,8 +10,11 @@ Early foundation. Working today: the Ollama Cloud client, a self-validating tool
 
 The system prompt is assembled in three tiers — **stable** (identity, tools, skill catalog), **context** (project instruction files), **volatile** (timestamp) — in that order, so the long prefix stays cache-friendly.
 
-- **Skills** live in `skills/<name>/SKILL.md` with `name` and `description` frontmatter. Only that metadata is loaded up front; the agent pulls a skill's full instructions on demand via the `load_skill` tool (progressive disclosure). Override the directory with `CADUCEUS_SKILLS_DIR`.
+- **Skills** (procedural — *how* to do things) live in `skills/<name>/SKILL.md` with `name` and `description` frontmatter. Only that metadata is loaded up front; the agent pulls a skill's full instructions on demand via the `load_skill` tool (progressive disclosure). Override the directory with `CADUCEUS_SKILLS_DIR`.
+- **Knowledge** (declarative — *facts* about the workspace) uses the [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf): a `knowledge/` bundle of Markdown concept files with YAML frontmatter (required `type`). The concept catalog is advertised in the prompt; the agent loads bodies with `read_concept` and can author durable knowledge back with `write_concept` / `append_log` (the LLM-wiki pattern). Override the directory with `CADUCEUS_KNOWLEDGE_DIR`.
 - **Context files** `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` in the working directory are loaded into the prompt automatically.
+
+Skills and knowledge are distinct layers built on one shared Markdown+frontmatter substrate (`src/markdown/frontmatter.ts`): Skills carry procedures and executable resources; OKF carries cross-linked facts the agent can read and maintain.
 
 ## Quick start
 
