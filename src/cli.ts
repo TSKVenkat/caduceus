@@ -7,6 +7,8 @@ import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadContextFiles } from "./context/files";
 import { loadBundle } from "./knowledge/okf";
 import { createKnowledgeTools } from "./knowledge/tools";
+import { loadEpisodic } from "./memory/episodic";
+import { createMemoryTools } from "./memory/tools";
 import { run, type RunEvent } from "./loop/orchestrator";
 import { OllamaClient } from "./model/ollama";
 import { buildSystemPrompt } from "./prompt/system";
@@ -49,10 +51,12 @@ async function main(): Promise<void> {
   const cwd = process.cwd();
   const skillsDir = resolve(cwd, process.env.CADUCEUS_SKILLS_DIR ?? "skills");
   const knowledgeDir = resolve(cwd, process.env.CADUCEUS_KNOWLEDGE_DIR ?? "knowledge");
-  const [skills, contextFiles, concepts] = await Promise.all([
+  const memoryDir = resolve(cwd, process.env.CADUCEUS_MEMORY_DIR ?? "memory");
+  const [skills, contextFiles, concepts, memories] = await Promise.all([
     loadSkills(skillsDir),
     loadContextFiles(cwd),
     loadBundle(knowledgeDir),
+    loadEpisodic(memoryDir),
   ]);
 
   const registry = new ToolRegistry();
@@ -60,16 +64,26 @@ async function main(): Promise<void> {
   if (skills.length > 0) {
     registry.register(createLoadSkillTool(skills));
   }
-  // Knowledge tools are always available so the agent can author into an empty bundle.
+  // Knowledge and memory tools are always available so the agent can author from empty.
   for (const tool of createKnowledgeTools(knowledgeDir)) {
+    registry.register(tool);
+  }
+  for (const tool of createMemoryTools(memoryDir)) {
     registry.register(tool);
   }
 
   process.stderr.write(
-    `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s)\n`,
+    `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s), ${memories.length} memory(ies)\n`,
   );
 
-  const systemPrompt = buildSystemPrompt({ registry, skills, contextFiles, concepts, now: new Date() });
+  const systemPrompt = buildSystemPrompt({
+    registry,
+    skills,
+    contextFiles,
+    concepts,
+    memories,
+    now: new Date(),
+  });
 
   const compressor = process.env.CADUCEUS_COMPRESS === "1" ? new LLMLinguaCompressor() : undefined;
   const client = new OllamaClient(config);
