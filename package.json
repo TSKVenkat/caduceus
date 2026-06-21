@@ -23,6 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "compress": "tsx src/compress/cli.ts",
+    "measure:compress": "tsx src/compress/measure.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

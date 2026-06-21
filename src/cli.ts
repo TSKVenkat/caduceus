@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig } from "./config";
+import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadContextFiles } from "./context/files";
 import { loadBundle } from "./knowledge/okf";
 import { createKnowledgeTools } from "./knowledge/tools";
@@ -70,17 +71,28 @@ async function main(): Promise<void> {
 
   const systemPrompt = buildSystemPrompt({ registry, skills, contextFiles, concepts, now: new Date() });
 
+  const compressor = process.env.CADUCEUS_COMPRESS === "1" ? new LLMLinguaCompressor() : undefined;
   const client = new OllamaClient(config);
-  const result = await run(task, {
-    client,
-    registry,
-    systemPrompt,
-    maxSteps: config.maxSteps,
-    onEvent: renderEvent,
-  });
-
-  process.stdout.write(`\n${result.finalText}\n`);
-  process.exitCode = result.stopReason === "done" ? 0 : 2;
+  try {
+    const result = await run(task, {
+      client,
+      registry,
+      systemPrompt,
+      maxSteps: config.maxSteps,
+      onEvent: renderEvent,
+      ...(compressor
+        ? {
+            compressor,
+            compressMinChars: Number(process.env.CADUCEUS_COMPRESS_MIN_CHARS ?? 1500),
+            compressRate: Number(process.env.CADUCEUS_COMPRESS_RATE ?? 0.5),
+          }
+        : {}),
+    });
+    process.stdout.write(`\n${result.finalText}\n`);
+    process.exitCode = result.stopReason === "done" ? 0 : 2;
+  } finally {
+    compressor?.close();
+  }
 }
 
 function renderEvent(event: RunEvent): void {
@@ -93,6 +105,11 @@ function renderEvent(event: RunEvent): void {
       return;
     case "tool_result":
       process.stderr.write(`  ${event.isError ? "✗" : "✓"} ${event.name}\n`);
+      return;
+    case "compress":
+      process.stderr.write(
+        `  ~ compressed ${event.tool} output (${event.beforeTokens} → ${event.afterTokens} tok)\n`,
+      );
       return;
     case "assistant":
       return;

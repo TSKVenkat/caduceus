@@ -13,7 +13,16 @@ export type RunEvent =
   | { type: "step"; n: number }
   | { type: "assistant"; content: string }
   | { type: "tool_call"; call: ToolCall }
-  | { type: "tool_result"; name: string; content: string; isError: boolean };
+  | { type: "tool_result"; name: string; content: string; isError: boolean }
+  | { type: "compress"; tool: string; beforeTokens: number; afterTokens: number };
+
+/** Compresses large tool output before it enters the message history. */
+export interface ToolOutputCompressor {
+  compress(
+    text: string,
+    options: { rate?: number },
+  ): Promise<{ compressed: string; originTokens: number; compressedTokens: number }>;
+}
 
 export interface RunOptions {
   client: ModelClient;
@@ -24,6 +33,10 @@ export interface RunOptions {
   cwd?: string;
   signal?: AbortSignal;
   onEvent?: (event: RunEvent) => void;
+  /** When set, tool output at/above `compressMinChars` is compressed (lossy). */
+  compressor?: ToolOutputCompressor;
+  compressMinChars?: number;
+  compressRate?: number;
 }
 
 export interface RunResult {
@@ -43,6 +56,8 @@ export async function run(task: string, options: RunOptions): Promise<RunResult>
   const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
   const cwd = options.cwd ?? process.cwd();
   const emit = options.onEvent ?? noop;
+  const compressMinChars = options.compressMinChars ?? 1500;
+  const compressRate = options.compressRate ?? 0.5;
   const tools = registry.specs();
 
   const systemPrompt = options.systemPrompt ?? buildSystemPrompt({ registry });
@@ -73,13 +88,27 @@ export async function run(task: string, options: RunOptions): Promise<RunResult>
       emit({ type: "tool_call", call });
       const result = await runTool(call, registry, { cwd, ...(options.signal ? { signal: options.signal } : {}) });
       stepHadError ||= result.isError;
-      emit({ type: "tool_result", name: call.name, content: result.content, isError: result.isError });
-      messages.push({
-        role: "tool",
-        name: call.name,
-        toolCallId: call.id,
-        content: result.content,
-      });
+
+      let content = result.content;
+      if (options.compressor && !result.isError && content.length >= compressMinChars) {
+        try {
+          const compressed = await options.compressor.compress(content, { rate: compressRate });
+          if (compressed.compressedTokens < compressed.originTokens) {
+            emit({
+              type: "compress",
+              tool: call.name,
+              beforeTokens: compressed.originTokens,
+              afterTokens: compressed.compressedTokens,
+            });
+            content = compressed.compressed;
+          }
+        } catch {
+          // fail open: keep the original output if compression errors
+        }
+      }
+
+      emit({ type: "tool_result", name: call.name, content, isError: result.isError });
+      messages.push({ role: "tool", name: call.name, toolCallId: call.id, content });
     }
 
     errorStreak = stepHadError ? errorStreak + 1 : 0;

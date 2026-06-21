@@ -36,6 +36,30 @@ cat somefile | pnpm compress --rate 0.4
 
 `--rate` is the fraction of tokens to keep (lower = more aggressive).
 
+## In the agent loop
+
+Set `CADUCEUS_COMPRESS=1` to compress tool output above `CADUCEUS_COMPRESS_MIN_CHARS`
+(default 1500) before it enters the message history. Compression is **lossy** and off by default.
+
+## Measured effect (honest, and bounded)
+
+`pnpm measure:compress` runs the agent on a task that must extract one planted fact
+from a large prose file, on the same model, without and with compression of the
+`read_file` output. One run:
+
+| condition | fact preserved | model tokens |
+| --- | --- | --- |
+| off | yes | 4035 |
+| on (LLMLingua) | yes | 2727 |
+
+≈ **32% fewer model tokens, identical correct answer.**
+
+Do not over-read this:
+
+- One scenario, one run each, deliberately favorable to LLMLingua (prose context with a rare, high-information token that survives compression).
+- LLMLingua-2 is **lossy** and trained on prose; compressing **source code** can corrupt it and drop information the agent needs. That is why compression is opt-in and size-gated — it is not safe to blanket-compress code.
+- Broader claims would need multiple scenarios and repeated runs.
+
 ## Environment variables
 
 | Variable | Default | Purpose |

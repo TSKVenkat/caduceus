@@ -1,11 +1,19 @@
 import type { Message, ToolCall, ToolSpec } from "../types";
 import type { ChatOptions, ModelClient } from "./client";
 
+export interface Usage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 export interface OllamaClientConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
   temperature?: number;
+  /** Called with token usage after each response that reports it. */
+  onUsage?: (usage: Usage) => void;
 }
 
 /** Client for Ollama Cloud's OpenAI-compatible chat completions endpoint. */
@@ -42,6 +50,15 @@ export class OllamaClient implements ModelClient {
     if (!choice) {
       throw new Error("Ollama response contained no choices");
     }
+    if (this.config.onUsage && data.usage) {
+      const promptTokens = data.usage.prompt_tokens ?? 0;
+      const completionTokens = data.usage.completion_tokens ?? 0;
+      this.config.onUsage({
+        promptTokens,
+        completionTokens,
+        totalTokens: data.usage.total_tokens ?? promptTokens + completionTokens,
+      });
+    }
     return fromApiMessage(choice.message);
   }
 }
@@ -74,6 +91,7 @@ interface ChatCompletionRequest {
 
 interface ChatCompletionResponse {
   choices?: Array<{ message: ApiMessage }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
 function toApiMessage(message: Message): ApiMessage {
