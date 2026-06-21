@@ -1,0 +1,1 @@
+Implement errorCode(kind) in errors.js so it returns the canonical error-code string for a given kind, following this project's error-code convention. Consult the project knowledge for the convention, then implement errorCode accordingly.

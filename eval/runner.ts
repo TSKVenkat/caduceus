@@ -6,6 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
 import { loadConfig } from "../src/config";
+import { loadBundle } from "../src/knowledge/okf";
+import { createKnowledgeTools } from "../src/knowledge/tools";
 import { run } from "../src/loop/orchestrator";
 import { OllamaClient, type Usage } from "../src/model/ollama";
 import { buildSystemPrompt } from "../src/prompt/system";
@@ -38,33 +40,38 @@ async function main(): Promise<void> {
       "max-steps": { type: "string" },
       task: { type: "string" },
       model: { type: "string" },
+      knowledge: { type: "boolean" },
+      label: { type: "string" },
     },
   });
 
   const attempts = values.attempts ? Number(values.attempts) : 1;
+  const useKnowledge = Boolean(values.knowledge);
+  const label = values.label ?? (useKnowledge ? "with-knowledge" : "baseline");
   const config = loadConfig({
     ...(values.model ? { model: values.model } : {}),
     ...(values["max-steps"] ? { maxSteps: Number(values["max-steps"]) } : {}),
   });
 
+  const only = values.task ? new Set(values.task.split(",").map((id) => id.trim())) : null;
   const taskIds = (await readdir(TASKS_DIR, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .filter((id) => !values.task || id === values.task)
+    .filter((id) => !only || only.has(id))
     .sort();
 
   if (taskIds.length === 0) {
-    throw new Error(values.task ? `No task named ${values.task}` : "No tasks found");
+    throw new Error(only ? `No matching tasks: ${[...only].join(", ")}` : "No tasks found");
   }
 
   process.stderr.write(
-    `Running ${taskIds.length} task(s) x ${attempts} attempt(s) on ${config.model}\n\n`,
+    `Running ${taskIds.length} task(s) x ${attempts} attempt(s) on ${config.model} [${label}]\n\n`,
   );
 
   const results: AttemptResult[] = [];
   for (const taskId of taskIds) {
     for (let attempt = 1; attempt <= attempts; attempt++) {
-      const result = await runTask(taskId, attempt, config);
+      const result = await runTask(taskId, attempt, config, useKnowledge);
       results.push(result);
       process.stderr.write(
         `  ${result.pass ? "PASS" : "FAIL"}  ${taskId} #${attempt}  ` +
@@ -73,13 +80,19 @@ async function main(): Promise<void> {
     }
   }
 
-  await report(results, config.model, attempts);
+  await report(results, config.model, attempts, label);
 }
 
-async function runTask(taskId: string, attempt: number, config: ReturnType<typeof loadConfig>): Promise<AttemptResult> {
+async function runTask(
+  taskId: string,
+  attempt: number,
+  config: ReturnType<typeof loadConfig>,
+  useKnowledge: boolean,
+): Promise<AttemptResult> {
   const taskDir = join(TASKS_DIR, taskId);
   const prompt = (await readFile(join(taskDir, "prompt.txt"), "utf8")).trim();
   const workspace = await mkdtemp(join(tmpdir(), `caduceus-eval-${taskId}-`));
+  const cleanup: string[] = [workspace];
 
   try {
     await cp(join(taskDir, "workspace"), workspace, { recursive: true });
@@ -97,12 +110,26 @@ async function runTask(taskId: string, attempt: number, config: ReturnType<typeo
     const registry = new ToolRegistry();
     registerBuiltins(registry);
 
+    // Knowledge ablation: when enabled, load the task's OKF bundle (if any) into
+    // an isolated copy and wire the knowledge tools + prompt catalog.
+    const taskKnowledge = join(taskDir, "knowledge");
+    let concepts: Awaited<ReturnType<typeof loadBundle>> = [];
+    if (useKnowledge && existsSync(taskKnowledge)) {
+      const knowledgeDir = await mkdtemp(join(tmpdir(), `caduceus-eval-kb-${taskId}-`));
+      cleanup.push(knowledgeDir);
+      await cp(taskKnowledge, knowledgeDir, { recursive: true });
+      concepts = await loadBundle(knowledgeDir);
+      for (const tool of createKnowledgeTools(knowledgeDir)) {
+        registry.register(tool);
+      }
+    }
+
     const start = Date.now();
     const result = await run(prompt, {
       client,
       registry,
       cwd: workspace,
-      systemPrompt: buildSystemPrompt({ registry }),
+      systemPrompt: buildSystemPrompt({ registry, concepts }),
       maxSteps: config.maxSteps,
       maxContextTokens: config.maxContextTokens,
       keepRecent: config.keepRecent,
@@ -122,7 +149,7 @@ async function runTask(taskId: string, attempt: number, config: ReturnType<typeo
       totalTokens,
     };
   } finally {
-    await rm(workspace, { recursive: true, force: true });
+    await Promise.all(cleanup.map((dir) => rm(dir, { recursive: true, force: true })));
   }
 }
 
@@ -135,12 +162,17 @@ async function verify(taskDir: string, workspace: string): Promise<boolean> {
   }
 }
 
-async function report(results: AttemptResult[], model: string, attempts: number): Promise<void> {
+async function report(
+  results: AttemptResult[],
+  model: string,
+  attempts: number,
+  label: string,
+): Promise<void> {
   const taskIds = [...new Set(results.map((r) => r.taskId))];
   const passed = results.filter((r) => r.pass).length;
   const resolveRate = passed / results.length;
 
-  process.stdout.write(`\nBaseline — ${model}\n`);
+  process.stdout.write(`\n${label} — ${model}\n`);
   process.stdout.write(`${"task".padEnd(22)} pass  steps  secs   tokens\n`);
   for (const taskId of taskIds) {
     const rows = results.filter((r) => r.taskId === taskId);
@@ -158,8 +190,12 @@ async function report(results: AttemptResult[], model: string, attempts: number)
   );
 
   await mkdir(RESULTS_DIR, { recursive: true });
-  const out = join(RESULTS_DIR, "latest.json");
-  await writeFile(out, JSON.stringify({ model, attempts, resolveRate, results }, null, 2), "utf8");
+  const out = join(RESULTS_DIR, `${label}.json`);
+  await writeFile(
+    out,
+    JSON.stringify({ label, model, attempts, resolveRate, results }, null, 2),
+    "utf8",
+  );
   process.stdout.write(`\nWrote ${out}\n`);
 }
 

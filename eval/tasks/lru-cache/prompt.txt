@@ -1,0 +1,1 @@
+Implement the LRUCache class in lru.js so the tests in lru.test.js pass. The cache has a fixed capacity. get(key) returns the stored value or -1 if absent, and marks the key most-recently-used. put(key, value) inserts or updates a key, and when the cache exceeds capacity it evicts the least-recently-used key. Run `node lru.test.js` to confirm.

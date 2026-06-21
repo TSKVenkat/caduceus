@@ -1,0 +1,1 @@
+Implement createUser(name) in users.js so it returns an object { id, name }. The id MUST follow this project's user-ID convention. Consult the project knowledge for the convention, then implement createUser accordingly.

@@ -1,0 +1,1 @@
+search.js has a bug: binarySearch returns the wrong result for some inputs, and the test search.test.js fails. Find and fix the bug so all tests pass. Run `node search.test.js` to confirm.

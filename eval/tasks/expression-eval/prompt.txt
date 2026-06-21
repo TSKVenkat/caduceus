@@ -1,0 +1,1 @@
+Implement evaluate(expr) in calc.js so the tests in calc.test.js pass. It evaluates an arithmetic expression string containing non-negative integers, the operators + - * /, and parentheses, honoring standard operator precedence. Division truncates toward zero. Run `node calc.test.js` to confirm.
