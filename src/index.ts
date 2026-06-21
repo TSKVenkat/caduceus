@@ -19,4 +19,6 @@ export { loadContextFiles } from "./context/files";
 export type { ContextFile } from "./context/files";
 export { loadBundle, readConcept, writeConcept, appendLog, createKnowledgeTools } from "./knowledge";
 export type { OkfConcept, WriteConceptInput } from "./knowledge";
+export { LLMLinguaCompressor } from "./compress/llmlingua";
+export type { CompressResult, CompressOptions } from "./compress/llmlingua";
 export type { Message, Role, ToolCall, ToolSpec } from "./types";
