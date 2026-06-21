@@ -85,6 +85,17 @@ The one no-knowledge pass was `conv-count-prefix` (its rule — prefix the lengt
 
 Reproduce end to end: `node eval/generate-conventions.mjs && bash eval/run-full.sh`.
 
+## Methodology grounding
+
+How this harness lines up with current practice for evaluating coding agents (2024–2026):
+
+- **Metrics.** `pass@k` = at least one of k attempts succeeds (Chen et al., 2021); `pass^k` ("pass-power-k") = all k succeed (Yao, 2025); plain `pass@1` is just the mean run-rate. The field recommends k > 1, not a lone `pass@1`. We report per-task `k/n` over repeated trials.
+- **Repeat runs.** Single-run `pass@1` is unreliable — SWE-bench Verified scores swing 2.2–6.0 points (SD > 1.5 even at temperature 0), so credible setups repeat each configuration ~5–10× (arXiv 2602.07150). We use temperature 0 and 3 trials per condition; for the convention result the effect is large enough that 3 trials already yields non-overlapping intervals, but 5–10 would be stricter.
+- **Declaring a winner.** Only on **non-overlapping confidence intervals** (arXiv 2510.04265). Our convention result clears this; the standard-suite "parity with Aider" does not (single pass, and single-run variance alone is several points).
+- **Confidence intervals.** We use Wilson intervals for binomial pass rates, per Anthropic's guidance on a statistical approach to evals (anthropic.com/research/statistical-approach-to-model-evals).
+- **Contamination.** SWE-bench Verified is 500 human-filtered instances; the original had 32.67% solution leakage and 31.08% weak tests (OpenAI; arXiv 2509.16941). Our tasks are generated and graded on held-out inputs, so they are leakage-free by construction — but they are synthetic, which is the trade-off.
+- **Known stat gap.** Tasks that share structure should use clustered standard errors (~3× naive; Miller/Anthropic, arXiv 2411.00640). Our convention tasks are independent (distinct rules/workspaces), so clustering is minor here.
+
 ## Limitations (honest)
 
 - Tasks are synthetic (controlled, generated) rather than scraped from real repos; this is not a public benchmark like SWE-bench Verified.
