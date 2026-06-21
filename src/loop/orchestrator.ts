@@ -18,6 +18,8 @@ export type RunEvent =
 export interface RunOptions {
   client: ModelClient;
   registry: ToolRegistry;
+  /** Prebuilt system prompt; falls back to a minimal prompt from the registry. */
+  systemPrompt?: string;
   maxSteps?: number;
   cwd?: string;
   signal?: AbortSignal;
@@ -43,8 +45,9 @@ export async function run(task: string, options: RunOptions): Promise<RunResult>
   const emit = options.onEvent ?? noop;
   const tools = registry.specs();
 
+  const systemPrompt = options.systemPrompt ?? buildSystemPrompt({ registry });
   const messages: Message[] = [
-    { role: "system", content: buildSystemPrompt(registry) },
+    { role: "system", content: systemPrompt },
     { role: "user", content: task },
   ];
 

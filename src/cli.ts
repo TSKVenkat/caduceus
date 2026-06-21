@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig } from "./config";
+import { loadContextFiles } from "./context/files";
 import { run, type RunEvent } from "./loop/orchestrator";
 import { OllamaClient } from "./model/ollama";
+import { buildSystemPrompt } from "./prompt/system";
+import { createLoadSkillTool } from "./skills/load-skill-tool";
+import { loadSkills } from "./skills/loader";
 import { registerBuiltins } from "./tools/builtin";
 import { ToolRegistry } from "./tools/registry";
 
@@ -38,13 +43,29 @@ async function main(): Promise<void> {
     ...(values["max-steps"] ? { maxSteps: Number(values["max-steps"]) } : {}),
   });
 
+  const cwd = process.cwd();
+  const skillsDir = resolve(cwd, process.env.CADUCEUS_SKILLS_DIR ?? "skills");
+  const [skills, contextFiles] = await Promise.all([loadSkills(skillsDir), loadContextFiles(cwd)]);
+
   const registry = new ToolRegistry();
   registerBuiltins(registry);
+  if (skills.length > 0) {
+    registry.register(createLoadSkillTool(skills));
+  }
+
+  if (skills.length > 0 || contextFiles.length > 0) {
+    process.stderr.write(
+      `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s)\n`,
+    );
+  }
+
+  const systemPrompt = buildSystemPrompt({ registry, skills, contextFiles, now: new Date() });
 
   const client = new OllamaClient(config);
   const result = await run(task, {
     client,
     registry,
+    systemPrompt,
     maxSteps: config.maxSteps,
     onEvent: renderEvent,
   });
