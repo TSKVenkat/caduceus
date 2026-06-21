@@ -4,7 +4,7 @@ An open coding agent that runs on [Ollama Cloud](https://docs.ollama.com/cloud).
 
 ## Status
 
-Early foundation. Working today: the Ollama Cloud client, a self-validating tool registry with three built-in tools (`read_file`, `write_file`, `bash`), the bounded agent loop with a circuit breaker, a tiered system prompt, Skills with progressive disclosure, and **real prompt compression** via Microsoft's LLMLingua (standalone `pnpm compress`; see [`compressor/`](compressor/)). Wiring compression into the loop, memory, and an evaluation harness are next — see [`docs/`](docs/).
+Early foundation. Working today: the Ollama Cloud client; a self-validating tool registry with built-in tools (`read_file`, `write_file`, `str_replace`, `bash`); the bounded agent loop with a circuit breaker; a tiered system prompt; Skills with progressive disclosure; an OKF knowledge layer; episodic memory; and **real prompt compression** via Microsoft's LLMLingua (`pnpm compress`; see [`compressor/`](compressor/)). The `str_replace` tool does surgical search/replace edits (token-cheap) instead of whole-file rewrites. A fair evaluation harness is next — see [`docs/`](docs/).
 
 ## Skills & project context
 
