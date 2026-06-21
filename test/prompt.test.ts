@@ -26,6 +26,7 @@ describe("buildSystemPrompt", () => {
       skills: [{ name: "summarize-diff", description: "Summarize changes.", dir: "/s", path: "/s/SKILL.md" }],
       contextFiles: [{ name: "AGENTS.md", content: "Project rules here." }],
       concepts: [{ id: "tables/orders", type: "Table", description: "Orders.", path: "/k/tables/orders.md" }],
+      memories: [{ slug: "use-pnpm", title: "Use pnpm", outcome: "success", tags: ["build"], path: "/m/use-pnpm.md" }],
       now: new Date("2026-06-21T00:00:00.000Z"),
     });
 
@@ -36,16 +37,20 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Project rules here.");
     expect(prompt).toContain("## Knowledge (OKF)");
     expect(prompt).toContain("- tables/orders (Table): Orders.");
+    expect(prompt).toContain("## Memory (past lessons)");
+    expect(prompt).toContain("- Use pnpm [success] (build)");
     expect(prompt).toContain("Current time: 2026-06-21T00:00:00.000Z");
 
     const skillsAt = prompt.indexOf("## Skills");
     const contextAt = prompt.indexOf("## Project context");
     const knowledgeAt = prompt.indexOf("## Knowledge (OKF)");
+    const memoryAt = prompt.indexOf("## Memory (past lessons)");
     const timeAt = prompt.indexOf("Current time:");
     expect(skillsAt).toBeGreaterThan(-1);
     expect(skillsAt).toBeLessThan(contextAt);
     expect(contextAt).toBeLessThan(knowledgeAt);
-    expect(knowledgeAt).toBeLessThan(timeAt);
+    expect(knowledgeAt).toBeLessThan(memoryAt);
+    expect(memoryAt).toBeLessThan(timeAt);
   });
 
   it("omits the skills section when there are no skills", () => {

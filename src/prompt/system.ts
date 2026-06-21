@@ -1,5 +1,6 @@
 import type { ContextFile } from "../context/files";
 import type { OkfConcept } from "../knowledge/okf";
+import type { EpisodicEntry } from "../memory/episodic";
 import type { Skill } from "../skills/loader";
 import type { ToolRegistry } from "../tools/registry";
 
@@ -8,6 +9,7 @@ export interface PromptInput {
   skills?: Skill[];
   contextFiles?: ContextFile[];
   concepts?: OkfConcept[];
+  memories?: EpisodicEntry[];
   now?: Date;
 }
 
@@ -21,6 +23,7 @@ export function buildSystemPrompt(input: PromptInput): string {
   const skills = input.skills ?? [];
   const contextFiles = input.contextFiles ?? [];
   const concepts = input.concepts ?? [];
+  const memories = input.memories ?? [];
   const now = input.now ?? new Date();
 
   const sections: string[] = [];
@@ -68,6 +71,17 @@ export function buildSystemPrompt(input: PromptInput): string {
             return `- ${concept.id} (${concept.type})${summary}`;
           })
           .join("\n"),
+      ].join("\n"),
+    );
+  }
+
+  // Context: episodic memory catalog (titles only — recall() loads bodies on demand).
+  if (memories.length > 0) {
+    sections.push(
+      [
+        "## Memory (past lessons)",
+        "Lessons learned on earlier tasks. Before a non-trivial task, call recall(query) to load relevant ones. After finishing, call remember(...) only for a durable, reusable lesson.",
+        memories.map((m) => `- ${m.title} [${m.outcome}]${m.tags.length ? ` (${m.tags.join(", ")})` : ""}`).join("\n"),
       ].join("\n"),
     );
   }
