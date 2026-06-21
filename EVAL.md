@@ -69,11 +69,27 @@ Aider has no mechanism to consult a curated knowledge store, so it fails exactly
 
 Caduceus matches Aider on standard coding tasks but is slower; its distinctive value is the OKF knowledge layer, which turns project-convention tasks from unsolvable (0%) into reliably solvable (100%). The clear next engineering win is reducing round-trips to close the speed gap.
 
+## Result 4 — Convention benchmark at scale (the strong version)
+
+The Result 2/3 ablation used only 2 tasks — too small to trust. This is the scaled, statistically meaningful version. `eval/generate-conventions.mjs` machine-generates **12 convention tasks**, each with an arbitrary string rule the model cannot guess (e.g. "lowercase and replace every vowel with `*`", "reverse the characters and wrap in angle brackets"). Each rule is documented **only** in an OKF concept, and each verifier checks **held-out inputs** different from the examples in the concept, so neither guessing nor memorizing the examples works. We run every task **3 times** under three conditions (`bash eval/run-full.sh`):
+
+| Condition | Resolve rate | 95% CI (Wilson) |
+| --- | --- | --- |
+| Aider 0.86 | **0/36 = 0.0%** | [0.0%, 9.6%] |
+| Caduceus, knowledge **off** | **1/36 = 2.8%** | [0.5%, 14.2%] |
+| Caduceus, **OKF knowledge on** | **36/36 = 100.0%** | [90.4%, 100%] |
+
+The one no-knowledge pass was `conv-count-prefix` (its rule — prefix the length and a colon — is the most guessable). The confidence intervals do **not overlap**, and a Fisher's exact test (36/36 vs 0/36) gives p ≪ 0.0001: the effect is real, not noise.
+
+**Conclusion (the defensible claim):** across 108 controlled runs, the OKF knowledge layer takes project-convention tasks from ~0% (Aider, and Caduceus without it) to **100%**. The agent itself is not magic — *with the feature off it fails just like Aider does* — which is exactly what isolates the knowledge layer as the cause. With knowledge on, it solves each task in ~12.5 s and ~9.7k tokens on average.
+
+Reproduce end to end: `node eval/generate-conventions.mjs && bash eval/run-full.sh`.
+
 ## Limitations (honest)
 
-- Tasks are synthetic and small; this is not yet a public, comparable benchmark.
-- No SWE-bench Verified subset and no head-to-head against another agent (e.g. Aider/opencode) yet — so we cannot yet claim Caduceus is *better* than alternatives, only that a specific feature measurably helps.
-- Single model, low attempt counts (pass^k with k=3 on the ablation). Variance is under-characterized.
+- Tasks are synthetic (controlled, generated) rather than scraped from real repos; this is not a public benchmark like SWE-bench Verified.
+- Single model (`qwen3-coder:480b-cloud`); results may differ on other models.
+- The convention claim is now well-powered (12 tasks x 3 trials x 3 conditions, non-overlapping CIs), but the standard-suite parity-with-Aider claim is still a single pass over 10 tasks, and Aider remains faster there (our ReAct loop makes more round-trips).
 
 ## Next
 

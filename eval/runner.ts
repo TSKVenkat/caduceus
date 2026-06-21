@@ -39,6 +39,7 @@ async function main(): Promise<void> {
       attempts: { type: "string" },
       "max-steps": { type: "string" },
       task: { type: "string" },
+      match: { type: "string" },
       model: { type: "string" },
       knowledge: { type: "boolean" },
       label: { type: "string" },
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .filter((id) => !only || only.has(id))
+    .filter((id) => !values.match || id.includes(values.match))
     .sort();
 
   if (taskIds.length === 0) {

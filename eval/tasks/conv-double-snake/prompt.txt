@@ -1,0 +1,1 @@
+Implement transform(input) in transform.js so it follows the project's "double-snake" string convention. The exact rule is described in the project knowledge — consult it, then implement transform accordingly.
