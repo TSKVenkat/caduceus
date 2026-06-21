@@ -42,6 +42,33 @@ Two tasks depend on a **project-specific convention the model cannot guess** (a 
 
 **Finding:** on convention-dependent tasks, the OKF knowledge layer raises the resolve rate from **0% to 100%**, and the agent also finishes in fewer steps (with knowledge it reads the concept and proceeds; without it, it wanders and usually exhausts the step budget). This is a clean, controlled demonstration that the knowledge layer changes outcomes — not just that a feature exists.
 
+## Result 3 — Head-to-head vs Aider (same model, same tasks)
+
+We ran [Aider](https://github.com/Aider-AI/aider) 0.86 against the identical task suite and hidden verifiers, on the same model (`qwen3-coder:480b-cloud` via Ollama Cloud). Reproduce with `bash eval/compare-aider.sh`.
+
+**Standard suite (10 tasks):**
+
+| Agent | resolve rate | speed |
+| --- | --- | --- |
+| Aider | **10/10** | faster (~5–16 s/task; single-shot edits) |
+| Caduceus | **10/10** | slower (~5–30 s/task; multi-step ReAct loop) |
+
+On standard tasks the two are at **parity on success**, and Aider is **faster** — its mature single-message edit format makes fewer round-trips than our ReAct tool loop. Caduceus is competitive here, not better; the loop has efficiency headroom.
+
+**Convention tasks (knowledge in an OKF bundle, not the prompt):**
+
+| Agent | resolve rate |
+| --- | --- |
+| Aider | **0/2** |
+| Caduceus, no knowledge | **0/6** |
+| Caduceus + OKF knowledge | **6/6 (2/2 tasks, 3 attempts each)** |
+
+Aider has no mechanism to consult a curated knowledge store, so it fails exactly as Caduceus does *without* its knowledge layer. **The OKF knowledge layer is a real, differentiating capability: it solves tasks a leading open coding agent cannot, on the same model.**
+
+### Honest takeaway
+
+Caduceus matches Aider on standard coding tasks but is slower; its distinctive value is the OKF knowledge layer, which turns project-convention tasks from unsolvable (0%) into reliably solvable (100%). The clear next engineering win is reducing round-trips to close the speed gap.
+
 ## Limitations (honest)
 
 - Tasks are synthetic and small; this is not yet a public, comparable benchmark.
