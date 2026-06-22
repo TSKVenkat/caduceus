@@ -39,7 +39,13 @@ async function main(): Promise<void> {
   });
 
   const cwd = process.cwd();
-  const client = new OllamaClient(config);
+  let totalTokens = 0;
+  const client = new OllamaClient({
+    ...config,
+    onUsage: (usage) => {
+      totalTokens += usage.totalTokens;
+    },
+  });
   const task = positionals.join(" ").trim();
 
   // No task: launch the interactive TUI in a terminal, otherwise show usage.
@@ -76,6 +82,7 @@ async function main(): Promise<void> {
   const streaming = process.env.CADUCEUS_STREAM === "1";
   const renderer = createRenderer();
   const compressor = process.env.CADUCEUS_COMPRESS === "1" ? new LLMLinguaCompressor() : undefined;
+  const started = Date.now();
   try {
     const result = await run(task, {
       client,
@@ -94,6 +101,8 @@ async function main(): Promise<void> {
     });
     renderer.finish();
     process.stdout.write(streaming ? "\n" : `\n${result.finalText}\n`);
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
+    process.stderr.write(`\n${totalTokens} tokens · ${seconds}s · ${result.steps} steps\n`);
     process.exitCode = result.stopReason === "done" ? 0 : 2;
   } finally {
     compressor?.close();
