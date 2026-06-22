@@ -24,7 +24,8 @@ Skills and knowledge are distinct layers built on one shared Markdown+frontmatte
 ```bash
 pnpm install
 export OLLAMA_API_KEY=...        # from https://ollama.com
-pnpm dev "list the files in this directory and summarize the project"
+pnpm dev "list the files in this directory and summarize the project"   # one-shot
+pnpm dev                                                                # interactive TUI (multi-turn)
 ```
 
 Build a distributable CLI:
