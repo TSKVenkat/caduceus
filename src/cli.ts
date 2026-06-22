@@ -12,6 +12,7 @@ import { createMemoryTools } from "./memory/tools";
 import { run, type RunEvent } from "./loop/orchestrator";
 import { OllamaClient } from "./model/ollama";
 import { buildSystemPrompt } from "./prompt/system";
+import { createCreateSkillTool } from "./skills/create-skill-tool";
 import { createLoadSkillTool } from "./skills/load-skill-tool";
 import { loadSkills } from "./skills/loader";
 import { registerBuiltins } from "./tools/builtin";
@@ -64,6 +65,8 @@ async function main(): Promise<void> {
   if (skills.length > 0) {
     registry.register(createLoadSkillTool(skills));
   }
+  // create_skill is always available so the agent can grow its skill library at runtime.
+  registry.register(createCreateSkillTool(skillsDir));
   // Knowledge and memory tools are always available so the agent can author from empty.
   for (const tool of createKnowledgeTools(knowledgeDir)) {
     registry.register(tool);
