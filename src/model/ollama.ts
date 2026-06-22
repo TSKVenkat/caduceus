@@ -1,5 +1,6 @@
 import type { Message, ToolCall, ToolSpec } from "../types";
 import type { ChatOptions, ModelClient } from "./client";
+import { fetchWithRetry } from "./retry";
 
 export interface Usage {
   promptTokens: number;
@@ -14,6 +15,12 @@ export interface OllamaClientConfig {
   temperature?: number;
   /** Called with token usage after each response that reports it. */
   onUsage?: (usage: Usage) => void;
+  /** Total attempts per request (default 3). */
+  retries?: number;
+  /** Per-attempt timeout in ms (default 120000). */
+  timeoutMs?: number;
+  /** Model to try once if the primary model keeps failing. */
+  fallbackModel?: string;
 }
 
 /** Client for Ollama Cloud's OpenAI-compatible chat completions endpoint. */
@@ -21,30 +28,18 @@ export class OllamaClient implements ModelClient {
   constructor(private readonly config: OllamaClientConfig) {}
 
   async chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
-    const tools = options.tools ?? [];
     const stream = Boolean(options.onToken);
-    const body: ChatCompletionRequest = {
-      model: this.config.model,
-      messages: messages.map(toApiMessage),
-      temperature: options.temperature ?? this.config.temperature ?? 0,
-      stream,
-      ...(stream ? { stream_options: { include_usage: true } } : {}),
-      ...(tools.length > 0 ? { tools: tools.map(toApiTool) } : {}),
-    };
 
-    const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${this.config.apiKey}`,
-      },
-      body: JSON.stringify(body),
-      ...(options.signal ? { signal: options.signal } : {}),
-    });
-
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      throw new Error(`Ollama request failed (${response.status}): ${detail.slice(0, 500)}`);
+    let response: Response;
+    try {
+      response = await this.request(this.config.model, messages, options, stream);
+    } catch (error) {
+      const fallback = this.config.fallbackModel;
+      if (fallback && fallback !== this.config.model && !options.signal?.aborted) {
+        response = await this.request(fallback, messages, options, stream);
+      } else {
+        throw error;
+      }
     }
 
     if (stream && options.onToken) {
@@ -58,6 +53,46 @@ export class OllamaClient implements ModelClient {
     }
     this.emitUsage(data.usage);
     return fromApiMessage(choice.message);
+  }
+
+  private async request(
+    model: string,
+    messages: Message[],
+    options: ChatOptions,
+    stream: boolean,
+  ): Promise<Response> {
+    const tools = options.tools ?? [];
+    const body: ChatCompletionRequest = {
+      model,
+      messages: messages.map(toApiMessage),
+      temperature: options.temperature ?? this.config.temperature ?? 0,
+      stream,
+      ...(stream ? { stream_options: { include_usage: true } } : {}),
+      ...(tools.length > 0 ? { tools: tools.map(toApiTool) } : {}),
+    };
+
+    const response = await fetchWithRetry(
+      `${this.config.baseUrl}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      {
+        attempts: this.config.retries ?? 3,
+        timeoutMs: this.config.timeoutMs ?? 120_000,
+        ...(options.signal ? { signal: options.signal } : {}),
+      },
+    );
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Ollama request failed (${response.status}): ${detail.slice(0, 500)}`);
+    }
+    return response;
   }
 
   private async readStream(response: Response, onToken: (text: string) => void): Promise<Message> {

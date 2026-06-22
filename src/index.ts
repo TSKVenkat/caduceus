@@ -3,6 +3,8 @@ export { loadConfig } from "./config";
 export type { ChatOptions, ModelClient } from "./model/client";
 export { OllamaClient } from "./model/ollama";
 export type { OllamaClientConfig, Usage } from "./model/ollama";
+export { fetchWithRetry } from "./model/retry";
+export type { RetryOptions } from "./model/retry";
 export { ToolRegistry } from "./tools/registry";
 export { defineTool, ToolArgsError } from "./tools/tool";
 export type { Tool, ToolContext, ToolDefinition } from "./tools/tool";

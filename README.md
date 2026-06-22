@@ -52,6 +52,9 @@ Both the CLI and the web server drive the same headless engine (`src/engine/sess
 | `CADUCEUS_MODEL` | `qwen3-coder:480b-cloud` | Model id |
 | `CADUCEUS_MAX_STEPS` | `20` | Loop iteration budget |
 | `CADUCEUS_TEMPERATURE` | `0` | Sampling temperature |
+| `CADUCEUS_RETRIES` | `3` | Attempts per model request (backoff on 429/5xx/network) |
+| `CADUCEUS_TIMEOUT_MS` | `120000` | Per-attempt request timeout |
+| `CADUCEUS_FALLBACK_MODEL` | _unset_ | Model tried once if the primary keeps failing |
 | `CADUCEUS_STREAM` | `0` | `1` streams the model's output live |
 | `CADUCEUS_ARTIFACTS_DIR` | `artifacts` | Directory of large files loaded on demand via `load_artifact` |
 

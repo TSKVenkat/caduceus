@@ -6,6 +6,9 @@ const configSchema = z.object({
   model: z.string().min(1),
   maxSteps: z.number().int().positive(),
   temperature: z.number().min(0),
+  retries: z.number().int().positive(),
+  timeoutMs: z.number().int().positive(),
+  fallbackModel: z.string().optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -15,6 +18,8 @@ const DEFAULTS = {
   model: "qwen3-coder:480b-cloud",
   maxSteps: 20,
   temperature: 0,
+  retries: 3,
+  timeoutMs: 120_000,
 } as const;
 
 /** Resolve configuration from the environment, applying explicit overrides last. */
@@ -26,6 +31,9 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     model: env.CADUCEUS_MODEL ?? DEFAULTS.model,
     maxSteps: env.CADUCEUS_MAX_STEPS ? Number(env.CADUCEUS_MAX_STEPS) : DEFAULTS.maxSteps,
     temperature: env.CADUCEUS_TEMPERATURE ? Number(env.CADUCEUS_TEMPERATURE) : DEFAULTS.temperature,
+    retries: env.CADUCEUS_RETRIES ? Number(env.CADUCEUS_RETRIES) : DEFAULTS.retries,
+    timeoutMs: env.CADUCEUS_TIMEOUT_MS ? Number(env.CADUCEUS_TIMEOUT_MS) : DEFAULTS.timeoutMs,
+    ...(env.CADUCEUS_FALLBACK_MODEL ? { fallbackModel: env.CADUCEUS_FALLBACK_MODEL } : {}),
     ...overrides,
   });
 
