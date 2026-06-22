@@ -8,6 +8,7 @@ import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadContextFiles } from "./context/files";
 import { loadBundle } from "./knowledge/okf";
 import { createKnowledgeTools } from "./knowledge/tools";
+import { createDelegateTool } from "./loop/delegate";
 import { connectMcpServers, loadMcpConfig } from "./mcp/client";
 import { loadEpisodic } from "./memory/episodic";
 import { createMemoryTools } from "./memory/tools";
@@ -92,6 +93,10 @@ async function main(): Promise<void> {
     process.stderr.write(`connected ${mcp.tools.length} MCP tool(s)\n`);
   }
 
+  const client = new OllamaClient(config);
+  // delegate lets the main agent spawn isolated subagents (built from the main client).
+  registry.register(createDelegateTool({ client, cwd, maxSteps: 10, maxConcurrency: 4 }));
+
   process.stderr.write(
     `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s), ${memories.length} memory(ies), ${artifacts.length} artifact(s)\n`,
   );
@@ -108,7 +113,6 @@ async function main(): Promise<void> {
 
   const streaming = process.env.CADUCEUS_STREAM === "1";
   const compressor = process.env.CADUCEUS_COMPRESS === "1" ? new LLMLinguaCompressor() : undefined;
-  const client = new OllamaClient(config);
   try {
     const result = await run(task, {
       client,
