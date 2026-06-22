@@ -1,9 +1,25 @@
 {
   "name": "caduceus",
-  "version": "0.0.0",
-  "description": "An open coding agent that runs on Ollama Cloud.",
+  "version": "1.0.0",
+  "description": "An open coding agent that runs on Ollama Cloud — CLI, TUI, and web UI with skills, knowledge, memory, MCP, subagents, and prompt compression.",
+  "keywords": [
+    "ai",
+    "agent",
+    "coding-agent",
+    "ollama",
+    "llm",
+    "mcp",
+    "cli",
+    "tui"
+  ],
   "type": "module",
   "license": "MIT",
+  "author": "Venkataraman T S K",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TSKVenkat/caduceus.git"
+  },
+  "homepage": "https://github.com/TSKVenkat/caduceus#readme",
   "bin": {
     "caduceus": "./dist/cli.js",
     "caduceus-web": "./dist/web/cli.js"
