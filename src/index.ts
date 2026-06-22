@@ -7,6 +7,8 @@ export { ToolRegistry } from "./tools/registry";
 export { defineTool, ToolArgsError } from "./tools/tool";
 export type { Tool, ToolContext, ToolDefinition } from "./tools/tool";
 export { registerBuiltins } from "./tools/builtin";
+export { planExec, buildExec, scrubbedEnv } from "./exec/sandbox";
+export type { SandboxMode, ExecPlan, PlanInput } from "./exec/sandbox";
 export { run } from "./loop/orchestrator";
 export type {
   RunEvent,
