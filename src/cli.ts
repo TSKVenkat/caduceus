@@ -12,7 +12,8 @@ import { createDelegateTool } from "./loop/delegate";
 import { connectMcpServers, loadMcpConfig } from "./mcp/client";
 import { loadEpisodic } from "./memory/episodic";
 import { createMemoryTools } from "./memory/tools";
-import { run, type RunEvent } from "./loop/orchestrator";
+import { run } from "./loop/orchestrator";
+import { createRenderer } from "./ui/render";
 import { OllamaClient } from "./model/ollama";
 import { buildSystemPrompt } from "./prompt/system";
 import { createCreateSkillTool } from "./skills/create-skill-tool";
@@ -112,6 +113,7 @@ async function main(): Promise<void> {
   });
 
   const streaming = process.env.CADUCEUS_STREAM === "1";
+  const renderer = createRenderer();
   const compressor = process.env.CADUCEUS_COMPRESS === "1" ? new LLMLinguaCompressor() : undefined;
   try {
     const result = await run(task, {
@@ -119,8 +121,8 @@ async function main(): Promise<void> {
       registry,
       systemPrompt,
       maxSteps: config.maxSteps,
-      onEvent: renderEvent,
-      ...(streaming ? { onToken: (text: string) => process.stdout.write(text) } : {}),
+      onEvent: renderer.onEvent,
+      ...(streaming ? { onToken: renderer.onToken } : {}),
       ...(compressor
         ? {
             compressor,
@@ -129,33 +131,13 @@ async function main(): Promise<void> {
           }
         : {}),
     });
+    renderer.finish();
     // When streaming, the final text was already printed live.
     process.stdout.write(streaming ? "\n" : `\n${result.finalText}\n`);
     process.exitCode = result.stopReason === "done" ? 0 : 2;
   } finally {
     compressor?.close();
     await closeMcp();
-  }
-}
-
-function renderEvent(event: RunEvent): void {
-  switch (event.type) {
-    case "step":
-      process.stderr.write(`\n[step ${event.n}]\n`);
-      return;
-    case "tool_call":
-      process.stderr.write(`  → ${event.call.name}(${JSON.stringify(event.call.arguments)})\n`);
-      return;
-    case "tool_result":
-      process.stderr.write(`  ${event.isError ? "✗" : "✓"} ${event.name}\n`);
-      return;
-    case "compress":
-      process.stderr.write(
-        `  ~ compressed ${event.tool} output (${event.beforeTokens} → ${event.afterTokens} tok)\n`,
-      );
-      return;
-    case "assistant":
-      return;
   }
 }
 

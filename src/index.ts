@@ -21,6 +21,8 @@ export type {
 } from "./loop/orchestrator";
 export { buildSystemPrompt } from "./prompt/system";
 export type { PromptInput } from "./prompt/system";
+export { createRenderer } from "./ui/render";
+export type { Renderer, RendererOptions } from "./ui/render";
 export { loadSkills, readSkillBody, createLoadSkillTool, createCreateSkillTool } from "./skills";
 export type { Skill } from "./skills";
 export { parseFrontmatter } from "./markdown/frontmatter";
