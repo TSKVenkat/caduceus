@@ -9,8 +9,12 @@ export type { Tool, ToolContext, ToolDefinition } from "./tools/tool";
 export { registerBuiltins } from "./tools/builtin";
 export { planExec, buildExec, scrubbedEnv } from "./exec/sandbox";
 export type { SandboxMode, ExecPlan, PlanInput } from "./exec/sandbox";
-export { run } from "./loop/orchestrator";
+export { run, runTurn } from "./loop/orchestrator";
 export { createDelegateTool } from "./loop/delegate";
+export { Conversation } from "./engine/conversation";
+export type { ConversationOptions, TurnOptions } from "./engine/conversation";
+export { listSessions, loadSession, saveSession, newSessionId } from "./engine/store";
+export type { StoredSession } from "./engine/store";
 export type { DelegateDeps } from "./loop/delegate";
 export type {
   RunEvent,
