@@ -1,3 +1,4 @@
+import type { Artifact } from "../artifacts/artifacts";
 import type { ContextFile } from "../context/files";
 import type { OkfConcept } from "../knowledge/okf";
 import type { EpisodicEntry } from "../memory/episodic";
@@ -10,6 +11,7 @@ export interface PromptInput {
   contextFiles?: ContextFile[];
   concepts?: OkfConcept[];
   memories?: EpisodicEntry[];
+  artifacts?: Artifact[];
   now?: Date;
 }
 
@@ -24,6 +26,7 @@ export function buildSystemPrompt(input: PromptInput): string {
   const contextFiles = input.contextFiles ?? [];
   const concepts = input.concepts ?? [];
   const memories = input.memories ?? [];
+  const artifacts = input.artifacts ?? [];
   const now = input.now ?? new Date();
 
   const sections: string[] = [];
@@ -85,6 +88,17 @@ export function buildSystemPrompt(input: PromptInput): string {
         "## Memory (past lessons)",
         "Lessons learned on earlier tasks. Before a non-trivial task, call recall(query) to load relevant ones. After finishing, call remember(...) only for a durable, reusable lesson.",
         memories.map((m) => `- ${m.title} [${m.outcome}]${m.tags.length ? ` (${m.tags.join(", ")})` : ""}`).join("\n"),
+      ].join("\n"),
+    );
+  }
+
+  // Context: artifacts catalog (load_artifact reads contents on demand).
+  if (artifacts.length > 0) {
+    sections.push(
+      [
+        "## Artifacts",
+        "Large files available via load_artifact(id) — load only when needed.",
+        artifacts.map((a) => `- ${a.id} (${Math.ceil(a.bytes / 1024)} KB)`).join("\n"),
       ].join("\n"),
     );
   }

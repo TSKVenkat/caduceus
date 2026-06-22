@@ -29,6 +29,8 @@ export { loadBundle, readConcept, writeConcept, appendLog, createKnowledgeTools 
 export type { OkfConcept, WriteConceptInput } from "./knowledge";
 export { loadEpisodic, readEntryBody, writeEntry, searchEpisodic, createMemoryTools } from "./memory";
 export type { EpisodicEntry, Outcome, WriteEntryInput, RecallHit } from "./memory";
+export { loadArtifacts, createArtifactTool } from "./artifacts/artifacts";
+export type { Artifact } from "./artifacts/artifacts";
 export { LLMLinguaCompressor } from "./compress/llmlingua";
 export type { CompressResult, CompressOptions } from "./compress/llmlingua";
 export type { Message, Role, ToolCall, ToolSpec } from "./types";

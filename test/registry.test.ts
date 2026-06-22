@@ -26,6 +26,12 @@ describe("ToolRegistry", () => {
     expect(() => registry.register(echo)).toThrow(/already registered/);
   });
 
+  it("registerAll registers an iterable of tools", () => {
+    const registry = new ToolRegistry();
+    registry.registerAll([echo]);
+    expect(registry.list().map((t) => t.name)).toEqual(["echo"]);
+  });
+
   it("exposes specs with JSON Schema parameters", () => {
     const registry = new ToolRegistry();
     registry.register(echo);
