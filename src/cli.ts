@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadConfig } from "./config";
+import { Conversation } from "./engine/conversation";
 import { buildSession } from "./engine/session";
 import { run } from "./loop/orchestrator";
 import { OllamaClient } from "./model/ollama";
@@ -27,10 +28,8 @@ async function main(): Promise<void> {
     },
   });
 
-  const task = positionals.join(" ").trim();
-  if (values.help || !task) {
+  if (values.help) {
     printUsage();
-    process.exitCode = task ? 0 : 1;
     return;
   }
 
@@ -39,8 +38,36 @@ async function main(): Promise<void> {
     ...(values["max-steps"] ? { maxSteps: Number(values["max-steps"]) } : {}),
   });
 
+  const cwd = process.cwd();
   const client = new OllamaClient(config);
-  const session = await buildSession({ cwd: process.cwd(), client });
+  const task = positionals.join(" ").trim();
+
+  // No task: launch the interactive TUI in a terminal, otherwise show usage.
+  if (!task) {
+    if (!process.stdout.isTTY) {
+      printUsage();
+      process.exitCode = 1;
+      return;
+    }
+    const session = await buildSession({ cwd, client });
+    try {
+      const { runTui } = await import("./ui/tui");
+      await runTui(
+        new Conversation({
+          client,
+          registry: session.registry,
+          systemPrompt: session.systemPrompt,
+          maxSteps: config.maxSteps,
+        }),
+      );
+    } finally {
+      await session.close();
+    }
+    return;
+  }
+
+  // One-shot: run a single task and print the result.
+  const session = await buildSession({ cwd, client });
   const { skills, contextFiles, concepts, memories, artifacts, mcpTools } = session.counts;
   process.stderr.write(
     `loaded ${skills} skill(s), ${contextFiles} context file(s), ${concepts} concept(s), ${memories} memory(ies), ${artifacts} artifact(s), ${mcpTools} MCP tool(s)\n`,
@@ -66,7 +93,6 @@ async function main(): Promise<void> {
         : {}),
     });
     renderer.finish();
-    // When streaming, the final text was already printed live.
     process.stdout.write(streaming ? "\n" : `\n${result.finalText}\n`);
     process.exitCode = result.stopReason === "done" ? 0 : 2;
   } finally {
@@ -80,16 +106,18 @@ function printUsage(): void {
     [
       "Caduceus — an open coding agent on Ollama Cloud.",
       "",
-      'Usage: caduceus [options] "<task>"',
+      "Usage:",
+      '  caduceus "<task>"     Run a single task',
+      "  caduceus              Start the interactive TUI (in a terminal)",
       "",
       "Options:",
-      "  --model <id>        Model to use (default: qwen3-coder:480b-cloud)",
-      "  --max-steps <n>     Maximum loop iterations (default: 20)",
-      "  -h, --help          Show this help",
+      "  --model <id>          Model to use (default: qwen3-coder:480b-cloud)",
+      "  --max-steps <n>       Maximum loop iterations (default: 20)",
+      "  -h, --help            Show this help",
       "",
       "Environment:",
-      "  OLLAMA_API_KEY      Required. API key for Ollama Cloud.",
-      "  OLLAMA_BASE_URL     Override the API base URL.",
+      "  OLLAMA_API_KEY        Required. API key for Ollama Cloud.",
+      "  OLLAMA_BASE_URL       Override the API base URL.",
       "",
     ].join("\n"),
   );
