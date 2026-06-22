@@ -10,6 +10,8 @@ export { registerBuiltins } from "./tools/builtin";
 export { planExec, buildExec, scrubbedEnv } from "./exec/sandbox";
 export type { SandboxMode, ExecPlan, PlanInput } from "./exec/sandbox";
 export { run } from "./loop/orchestrator";
+export { createDelegateTool } from "./loop/delegate";
+export type { DelegateDeps } from "./loop/delegate";
 export type {
   RunEvent,
   RunOptions,
