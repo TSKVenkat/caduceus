@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig } from "./config";
 import { createArtifactTool, loadArtifacts } from "./artifacts/artifacts";
@@ -8,6 +8,7 @@ import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadContextFiles } from "./context/files";
 import { loadBundle } from "./knowledge/okf";
 import { createKnowledgeTools } from "./knowledge/tools";
+import { connectMcpServers, loadMcpConfig } from "./mcp/client";
 import { loadEpisodic } from "./memory/episodic";
 import { createMemoryTools } from "./memory/tools";
 import { run, type RunEvent } from "./loop/orchestrator";
@@ -79,6 +80,18 @@ async function main(): Promise<void> {
   }
   registry.register(createArtifactTool(artifactsDir));
 
+  // MCP: connect configured servers and register their tools.
+  const mcpConfig = await loadMcpConfig(
+    process.env.CADUCEUS_MCP_CONFIG ?? join(cwd, ".caduceus", "mcp.json"),
+  );
+  let closeMcp = async (): Promise<void> => {};
+  if (mcpConfig) {
+    const mcp = await connectMcpServers(mcpConfig);
+    registry.registerAll(mcp.tools);
+    closeMcp = mcp.close;
+    process.stderr.write(`connected ${mcp.tools.length} MCP tool(s)\n`);
+  }
+
   process.stderr.write(
     `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s), ${memories.length} memory(ies), ${artifacts.length} artifact(s)\n`,
   );
@@ -117,6 +130,7 @@ async function main(): Promise<void> {
     process.exitCode = result.stopReason === "done" ? 0 : 2;
   } finally {
     compressor?.close();
+    await closeMcp();
   }
 }
 
