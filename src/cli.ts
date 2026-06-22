@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig } from "./config";
+import { createArtifactTool, loadArtifacts } from "./artifacts/artifacts";
 import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadContextFiles } from "./context/files";
 import { loadBundle } from "./knowledge/okf";
@@ -53,11 +54,13 @@ async function main(): Promise<void> {
   const skillsDir = resolve(cwd, process.env.CADUCEUS_SKILLS_DIR ?? "skills");
   const knowledgeDir = resolve(cwd, process.env.CADUCEUS_KNOWLEDGE_DIR ?? "knowledge");
   const memoryDir = resolve(cwd, process.env.CADUCEUS_MEMORY_DIR ?? "memory");
-  const [skills, contextFiles, concepts, memories] = await Promise.all([
+  const artifactsDir = resolve(cwd, process.env.CADUCEUS_ARTIFACTS_DIR ?? "artifacts");
+  const [skills, contextFiles, concepts, memories, artifacts] = await Promise.all([
     loadSkills(skillsDir),
     loadContextFiles(cwd),
     loadBundle(knowledgeDir),
     loadEpisodic(memoryDir),
+    loadArtifacts(artifactsDir),
   ]);
 
   const registry = new ToolRegistry();
@@ -74,9 +77,10 @@ async function main(): Promise<void> {
   for (const tool of createMemoryTools(memoryDir)) {
     registry.register(tool);
   }
+  registry.register(createArtifactTool(artifactsDir));
 
   process.stderr.write(
-    `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s), ${memories.length} memory(ies)\n`,
+    `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s), ${memories.length} memory(ies), ${artifacts.length} artifact(s)\n`,
   );
 
   const systemPrompt = buildSystemPrompt({
@@ -85,9 +89,11 @@ async function main(): Promise<void> {
     contextFiles,
     concepts,
     memories,
+    artifacts,
     now: new Date(),
   });
 
+  const streaming = process.env.CADUCEUS_STREAM === "1";
   const compressor = process.env.CADUCEUS_COMPRESS === "1" ? new LLMLinguaCompressor() : undefined;
   const client = new OllamaClient(config);
   try {
@@ -97,6 +103,7 @@ async function main(): Promise<void> {
       systemPrompt,
       maxSteps: config.maxSteps,
       onEvent: renderEvent,
+      ...(streaming ? { onToken: (text: string) => process.stdout.write(text) } : {}),
       ...(compressor
         ? {
             compressor,
@@ -105,7 +112,8 @@ async function main(): Promise<void> {
           }
         : {}),
     });
-    process.stdout.write(`\n${result.finalText}\n`);
+    // When streaming, the final text was already printed live.
+    process.stdout.write(streaming ? "\n" : `\n${result.finalText}\n`);
     process.exitCode = result.stopReason === "done" ? 0 : 2;
   } finally {
     compressor?.close();

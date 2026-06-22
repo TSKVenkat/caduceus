@@ -12,6 +12,12 @@ export class ToolRegistry {
     this.tools.set(tool.name, tool);
   }
 
+  registerAll(tools: Iterable<Tool>): void {
+    for (const tool of tools) {
+      this.register(tool);
+    }
+  }
+
   get(name: string): Tool | undefined {
     return this.tools.get(name);
   }

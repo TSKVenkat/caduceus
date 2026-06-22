@@ -33,6 +33,8 @@ export interface RunOptions {
   cwd?: string;
   signal?: AbortSignal;
   onEvent?: (event: RunEvent) => void;
+  /** Stream assistant text deltas live (forwarded to the model client). */
+  onToken?: (text: string) => void;
   /** When set, tool output at/above `compressMinChars` is compressed (lossy). */
   compressor?: ToolOutputCompressor;
   compressMinChars?: number;
@@ -74,6 +76,7 @@ export async function run(task: string, options: RunOptions): Promise<RunResult>
     const chatOptions = {
       tools,
       ...(options.signal ? { signal: options.signal } : {}),
+      ...(options.onToken ? { onToken: options.onToken } : {}),
     };
     const reply = await client.chat(messages, chatOptions);
     messages.push(reply);

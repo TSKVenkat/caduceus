@@ -41,6 +41,8 @@ node dist/cli.js "your task"
 | `CADUCEUS_MODEL` | `qwen3-coder:480b-cloud` | Model id |
 | `CADUCEUS_MAX_STEPS` | `20` | Loop iteration budget |
 | `CADUCEUS_TEMPERATURE` | `0` | Sampling temperature |
+| `CADUCEUS_STREAM` | `0` | `1` streams the model's output live |
+| `CADUCEUS_ARTIFACTS_DIR` | `artifacts` | Directory of large files loaded on demand via `load_artifact` |
 
 CLI flags `--model` and `--max-steps` override the environment.
 
