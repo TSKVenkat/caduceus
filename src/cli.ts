@@ -1,26 +1,12 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { loadConfig } from "./config";
-import { createArtifactTool, loadArtifacts } from "./artifacts/artifacts";
 import { LLMLinguaCompressor } from "./compress/llmlingua";
-import { loadContextFiles } from "./context/files";
-import { loadBundle } from "./knowledge/okf";
-import { createKnowledgeTools } from "./knowledge/tools";
-import { createDelegateTool } from "./loop/delegate";
-import { connectMcpServers, loadMcpConfig } from "./mcp/client";
-import { loadEpisodic } from "./memory/episodic";
-import { createMemoryTools } from "./memory/tools";
+import { loadConfig } from "./config";
+import { buildSession } from "./engine/session";
 import { run } from "./loop/orchestrator";
-import { createRenderer } from "./ui/render";
 import { OllamaClient } from "./model/ollama";
-import { buildSystemPrompt } from "./prompt/system";
-import { createCreateSkillTool } from "./skills/create-skill-tool";
-import { createLoadSkillTool } from "./skills/load-skill-tool";
-import { loadSkills } from "./skills/loader";
-import { registerBuiltins } from "./tools/builtin";
-import { ToolRegistry } from "./tools/registry";
+import { createRenderer } from "./ui/render";
 
 /** Load environment variables from a local .env file when present. */
 function loadDotenv(): void {
@@ -53,64 +39,12 @@ async function main(): Promise<void> {
     ...(values["max-steps"] ? { maxSteps: Number(values["max-steps"]) } : {}),
   });
 
-  const cwd = process.cwd();
-  const skillsDir = resolve(cwd, process.env.CADUCEUS_SKILLS_DIR ?? "skills");
-  const knowledgeDir = resolve(cwd, process.env.CADUCEUS_KNOWLEDGE_DIR ?? "knowledge");
-  const memoryDir = resolve(cwd, process.env.CADUCEUS_MEMORY_DIR ?? "memory");
-  const artifactsDir = resolve(cwd, process.env.CADUCEUS_ARTIFACTS_DIR ?? "artifacts");
-  const [skills, contextFiles, concepts, memories, artifacts] = await Promise.all([
-    loadSkills(skillsDir),
-    loadContextFiles(cwd),
-    loadBundle(knowledgeDir),
-    loadEpisodic(memoryDir),
-    loadArtifacts(artifactsDir),
-  ]);
-
-  const registry = new ToolRegistry();
-  registerBuiltins(registry);
-  if (skills.length > 0) {
-    registry.register(createLoadSkillTool(skills));
-  }
-  // create_skill is always available so the agent can grow its skill library at runtime.
-  registry.register(createCreateSkillTool(skillsDir));
-  // Knowledge and memory tools are always available so the agent can author from empty.
-  for (const tool of createKnowledgeTools(knowledgeDir)) {
-    registry.register(tool);
-  }
-  for (const tool of createMemoryTools(memoryDir)) {
-    registry.register(tool);
-  }
-  registry.register(createArtifactTool(artifactsDir));
-
-  // MCP: connect configured servers and register their tools.
-  const mcpConfig = await loadMcpConfig(
-    process.env.CADUCEUS_MCP_CONFIG ?? join(cwd, ".caduceus", "mcp.json"),
-  );
-  let closeMcp = async (): Promise<void> => {};
-  if (mcpConfig) {
-    const mcp = await connectMcpServers(mcpConfig);
-    registry.registerAll(mcp.tools);
-    closeMcp = mcp.close;
-    process.stderr.write(`connected ${mcp.tools.length} MCP tool(s)\n`);
-  }
-
   const client = new OllamaClient(config);
-  // delegate lets the main agent spawn isolated subagents (built from the main client).
-  registry.register(createDelegateTool({ client, cwd, maxSteps: 10, maxConcurrency: 4 }));
-
+  const session = await buildSession({ cwd: process.cwd(), client });
+  const { skills, contextFiles, concepts, memories, artifacts, mcpTools } = session.counts;
   process.stderr.write(
-    `loaded ${skills.length} skill(s), ${contextFiles.length} context file(s), ${concepts.length} concept(s), ${memories.length} memory(ies), ${artifacts.length} artifact(s)\n`,
+    `loaded ${skills} skill(s), ${contextFiles} context file(s), ${concepts} concept(s), ${memories} memory(ies), ${artifacts} artifact(s), ${mcpTools} MCP tool(s)\n`,
   );
-
-  const systemPrompt = buildSystemPrompt({
-    registry,
-    skills,
-    contextFiles,
-    concepts,
-    memories,
-    artifacts,
-    now: new Date(),
-  });
 
   const streaming = process.env.CADUCEUS_STREAM === "1";
   const renderer = createRenderer();
@@ -118,8 +52,8 @@ async function main(): Promise<void> {
   try {
     const result = await run(task, {
       client,
-      registry,
-      systemPrompt,
+      registry: session.registry,
+      systemPrompt: session.systemPrompt,
       maxSteps: config.maxSteps,
       onEvent: renderer.onEvent,
       ...(streaming ? { onToken: renderer.onToken } : {}),
@@ -137,7 +71,7 @@ async function main(): Promise<void> {
     process.exitCode = result.stopReason === "done" ? 0 : 2;
   } finally {
     compressor?.close();
-    await closeMcp();
+    await session.close();
   }
 }
 
