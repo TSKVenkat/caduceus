@@ -31,6 +31,8 @@ export { loadEpisodic, readEntryBody, writeEntry, searchEpisodic, createMemoryTo
 export type { EpisodicEntry, Outcome, WriteEntryInput, RecallHit } from "./memory";
 export { loadArtifacts, createArtifactTool } from "./artifacts/artifacts";
 export type { Artifact } from "./artifacts/artifacts";
+export { connectMcpServers, clientTools, loadMcpConfig } from "./mcp/client";
+export type { McpConfig, McpServerConfig, McpConnection } from "./mcp/client";
 export { LLMLinguaCompressor } from "./compress/llmlingua";
 export type { CompressResult, CompressOptions } from "./compress/llmlingua";
 export type { Message, Role, ToolCall, ToolSpec } from "./types";
