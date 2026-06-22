@@ -37,6 +37,7 @@ export function buildSystemPrompt(input: PromptInput): string {
       "Prefer small, reversible steps. Call one or more tools, read their results, then decide the next action.",
       "To change an existing file, use str_replace with a unique snippet — do not rewrite the whole file with write_file.",
       "When you need several independent pieces of information (e.g. reading multiple files), request them in a single turn rather than one at a time.",
+      "If a multi-step procedure is worth repeating, save it as a reusable skill with create_skill (test any script before relying on it).",
       "Do not guess file contents — read them. Do not claim something works until you have verified it.",
       "When the task is complete, reply with a short summary and no tool call.",
     ].join("\n"),
