@@ -49,11 +49,25 @@ export interface RunResult {
 }
 
 /**
- * Bounded reason→act loop: the model either answers (done) or requests tools,
- * which we execute and feed back. Stops on completion, step budget, or a run of
- * consecutive tool errors.
+ * One-shot entry point: seed a fresh conversation ([system, user]) and run a
+ * single turn to completion. Kept as a convenience over {@link runTurn}.
  */
 export async function run(task: string, options: RunOptions): Promise<RunResult> {
+  const systemPrompt = options.systemPrompt ?? buildSystemPrompt({ registry: options.registry });
+  const messages: Message[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: task },
+  ];
+  return runTurn(messages, options);
+}
+
+/**
+ * Run the bounded reason→act loop over a pre-seeded message history (which must
+ * already include the system prompt and the latest user message). The model
+ * either answers (done) or requests tools, which we execute and feed back.
+ * Mutates and returns `messages`, so a Conversation can keep it across turns.
+ */
+export async function runTurn(messages: Message[], options: RunOptions): Promise<RunResult> {
   const { client, registry } = options;
   const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
   const cwd = options.cwd ?? process.cwd();
@@ -61,12 +75,6 @@ export async function run(task: string, options: RunOptions): Promise<RunResult>
   const compressMinChars = options.compressMinChars ?? 1500;
   const compressRate = options.compressRate ?? 0.5;
   const tools = registry.specs();
-
-  const systemPrompt = options.systemPrompt ?? buildSystemPrompt({ registry });
-  const messages: Message[] = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: task },
-  ];
 
   let errorStreak = 0;
 
