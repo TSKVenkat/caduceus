@@ -1,47 +1,55 @@
 # Caduceus
 
-An open coding agent that runs on [Ollama Cloud](https://docs.ollama.com/cloud). Give it a task in your terminal; it inspects the workspace, edits files, runs commands, and verifies its work in a bounded reason→act loop.
+An open, single-agent **coding agent** that runs on [Ollama Cloud](https://docs.ollama.com/cloud). Give it a task in your terminal (or browser) and it inspects the workspace, edits files, runs commands, and verifies its work in a bounded reason→act loop — with skills, a knowledge layer, memory, prompt compression, sandboxing, subagents, MCP tools, and a streaming CLI/Web UI.
 
-## Status
+TypeScript · pnpm · Ollama Cloud (OpenAI-compatible). Built from scratch; architecture modeled on the Hermes Agent framework.
 
-Early foundation. Working today: the Ollama Cloud client; a self-validating tool registry with built-in tools (`read_file`, `write_file`, `str_replace`, `bash`); the bounded agent loop with a circuit breaker; a tiered system prompt; Skills with progressive disclosure; an OKF knowledge layer; episodic memory; and **real prompt compression** via Microsoft's LLMLingua (`pnpm compress`; see [`compressor/`](compressor/)). The `str_replace` tool does surgical search/replace edits (token-cheap) instead of whole-file rewrites. A fair evaluation harness is next — see [`docs/`](docs/).
+```text
+▸ step 1
+  → write_file({"path":"greet.js","content":"console.log('hello from caduceus');"})
+  ✓ write_file
+▸ step 2
+  → bash({"command":"node greet.js"})
+  ✓ bash
+▸ step 3
+I created greet.js and ran it; it printed "hello from caduceus".
 
-## Skills & project context
+8253 tokens · 12.3s · 3 steps
+```
 
-The system prompt is assembled in three tiers — **stable** (identity, tools, skill catalog), **context** (project instruction files), **volatile** (timestamp) — in that order, so the long prefix stays cache-friendly.
+## Features
 
-- **Skills** (procedural — *how* to do things) live in `skills/<name>/SKILL.md` with `name` and `description` frontmatter. Only that metadata is loaded up front; the agent pulls a skill's full instructions on demand via the `load_skill` tool (progressive disclosure). The agent can also **grow its own skill library at runtime** with `create_skill` (Voyager-style procedural memory) — saving a reusable procedure (and optional script) for future runs. Override the directory with `CADUCEUS_SKILLS_DIR`.
-- **Knowledge** (declarative — *facts* about the workspace) uses the [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf): a `knowledge/` bundle of Markdown concept files with YAML frontmatter (required `type`). The concept catalog is advertised in the prompt; the agent loads bodies with `read_concept` and can author durable knowledge back with `write_concept` / `append_log` (the LLM-wiki pattern). Override the directory with `CADUCEUS_KNOWLEDGE_DIR`.
-- **Memory** (episodic — *lessons* from past tasks) is a flat-file `memory/` of Markdown notes (Reflexion-style). Titles are advertised in the prompt; the agent pulls relevant ones on demand with `recall` and records durable lessons with `remember`. Writes are intentionally strict (indiscriminate memory makes an agent worse), and storage dedupes by title. No vector store — transparent, like Anthropic's `/memories`. Override the directory with `CADUCEUS_MEMORY_DIR`.
-- **Context files** `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` in the working directory are loaded into the prompt automatically.
-- **Subagents (`delegate`)**: the agent can spawn isolated subagents for up to a few **independent** investigation subtasks (each its own context + builtin tools, bounded budget, **no nesting**, concurrency ≤ 4) and get back a digest. For parallel read-only exploration — not sequential or same-file edits (single-agent is the default for coding).
-- **MCP connectors**: drop a `.caduceus/mcp.json` (`{ "mcpServers": { "name": { "command": "...", "args": [...] } } }` for stdio, or `{ "url": "..." }` for HTTP) and the agent connects to those [MCP](https://modelcontextprotocol.io) servers and registers their tools (namespaced `mcp__<server>__<tool>`). Override the path with `CADUCEUS_MCP_CONFIG`.
+- **Bounded ReAct loop** with a circuit breaker and a per-task step budget.
+- **Tools:** `read_file`, `write_file`, `str_replace` (surgical search/replace edits), `bash`.
+- **Skills** — procedural know-how as `SKILL.md` folders with progressive disclosure; the agent can `create_skill` at runtime (Voyager-style).
+- **Knowledge (OKF)** — a Markdown concept bundle ([Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)) the agent reads and authors.
+- **Memory** — flat-file episodic lessons (`remember`/`recall`), strict-write.
+- **Prompt compression** — real [LLMLingua](https://github.com/microsoft/LLMLingua) via a Python sidecar (opt-in).
+- **Sandboxing** — env scrubbing always on; bubblewrap OS isolation (network off) with graceful degradation.
+- **Subagents** — `delegate` runs isolated subagents for independent, parallel investigation.
+- **MCP connectors** — connect to Model Context Protocol servers and use their tools.
+- **Multi-turn** — an interactive Ink TUI and a Hermes-style Web UI, both with session persistence, on one shared engine.
+- **Reliable** — retries with backoff, request timeouts, optional model fallback, usage reporting.
 
-Skills and knowledge are distinct layers built on one shared Markdown+frontmatter substrate (`src/markdown/frontmatter.ts`): Skills carry procedures and executable resources; OKF carries cross-linked facts the agent can read and maintain.
-
-## Quick start
+## Install & run
 
 ```bash
 pnpm install
 export OLLAMA_API_KEY=...        # from https://ollama.com
-pnpm dev "list the files in this directory and summarize the project"   # one-shot
-pnpm dev                                                                # interactive TUI (multi-turn)
+
+pnpm dev "summarize this project"   # one-shot task
+pnpm dev                            # interactive TUI (multi-turn chat)
+pnpm web                            # web UI → http://localhost:4100
 ```
 
 Build a distributable CLI:
 
 ```bash
 pnpm build
-node dist/cli.js "your task"
+node dist/cli.js "your task"   # or: caduceus "your task" / caduceus-web
 ```
 
-Web UI (a Hermes-style local server with a live event/token stream):
-
-```bash
-pnpm web        # → http://localhost:4100
-```
-
-Both the CLI and the web server drive the same headless engine (`src/engine/session.ts` → `run()`).
+The CLI and the web server drive the same headless engine (`src/engine/session.ts` → `run()` / `Conversation`).
 
 ## Configuration
 
@@ -50,38 +58,37 @@ Both the CLI and the web server drive the same headless engine (`src/engine/sess
 | `OLLAMA_API_KEY` | _required_ | Ollama Cloud API key |
 | `OLLAMA_BASE_URL` | `https://ollama.com/v1` | OpenAI-compatible endpoint |
 | `CADUCEUS_MODEL` | `qwen3-coder:480b-cloud` | Model id |
+| `CADUCEUS_FALLBACK_MODEL` | _unset_ | Model tried once if the primary keeps failing |
 | `CADUCEUS_MAX_STEPS` | `20` | Loop iteration budget |
 | `CADUCEUS_TEMPERATURE` | `0` | Sampling temperature |
-| `CADUCEUS_RETRIES` | `3` | Attempts per model request (backoff on 429/5xx/network) |
+| `CADUCEUS_RETRIES` | `3` | Attempts per request (backoff on 429/5xx/network) |
 | `CADUCEUS_TIMEOUT_MS` | `120000` | Per-attempt request timeout |
-| `CADUCEUS_FALLBACK_MODEL` | _unset_ | Model tried once if the primary keeps failing |
 | `CADUCEUS_STREAM` | `0` | `1` streams the model's output live |
-| `CADUCEUS_ARTIFACTS_DIR` | `artifacts` | Directory of large files loaded on demand via `load_artifact` |
+| `CADUCEUS_SANDBOX` | `auto` | `off` / `auto` / `on` (require bwrap) |
+| `CADUCEUS_SANDBOX_NET` | `0` | `1` to allow network inside the sandbox |
+| `CADUCEUS_COMPRESS` | `0` | `1` compresses large tool output via LLMLingua |
+| `CADUCEUS_SKILLS_DIR` / `_KNOWLEDGE_DIR` / `_MEMORY_DIR` / `_ARTIFACTS_DIR` | `skills` / `knowledge` / `memory` / `artifacts` | Where each layer lives |
+| `CADUCEUS_MCP_CONFIG` | `.caduceus/mcp.json` | MCP servers config |
 
 CLI flags `--model` and `--max-steps` override the environment.
 
-## Sandboxing
+## How it works
 
-The `bash` tool (and any agent-generated scripts it runs) executes with defense-in-depth:
+The system prompt is assembled in three tiers — **stable** (identity, tools, skill catalog), **context** (project files, OKF knowledge, memory, artifacts), **volatile** (timestamp) — in that order, so the long prefix stays cache-friendly. Skills and OKF knowledge share one Markdown+frontmatter substrate (`src/markdown/frontmatter.ts`). A `Conversation` keeps history across turns; sessions persist to `.caduceus/sessions`.
 
-- **Env scrubbing (always on):** secret-looking variables (`*_API_KEY`, `*_TOKEN`, `*_SECRET`, passwords, …) are stripped from the child environment, so agent-run code can't read the agent's own credentials.
-- **OS sandbox via [bubblewrap](https://github.com/containers/bubblewrap):** when `bwrap` is present, commands run cwd-confined (writes limited to the workspace) with **network off by default**. No root required.
-- **Graceful degradation:** if `bwrap` is missing, `auto` (default) warns once and runs unsandboxed; `CADUCEUS_SANDBOX=on` makes it a hard requirement; `off` disables it.
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `CADUCEUS_SANDBOX` | `auto` | `off` / `auto` / `on` (require bwrap) |
-| `CADUCEUS_SANDBOX_NET` | `0` | `1` to allow network inside the sandbox |
+- **MCP:** drop a `.caduceus/mcp.json` (`{ "mcpServers": { "name": { "command": "...", "args": [...] } } }` for stdio, or `{ "url": "..." }` for HTTP); tools register as `mcp__<server>__<tool>`.
+- **Sandboxing:** secret-looking env vars are stripped from tool subprocesses; with `bwrap` present, shell runs cwd-confined with network off. Without it, `auto` warns and runs unsandboxed.
+- **Compression:** see [`compressor/`](compressor/) for the LLMLingua sidecar setup (`pnpm compress`).
 
 ## Development
 
 ```bash
 pnpm typecheck   # tsc --noEmit
-pnpm test        # vitest
 pnpm lint        # eslint
+pnpm test        # vitest
 pnpm build       # tsup → dist/
 ```
 
-## Design
+## License
 
-The architecture and the research behind it live in [`docs/`](docs/): the agent follows a layered, cache-stable prompt and a self-registering tool registry, and is evaluated on a private task suite rather than public benchmarks.
+MIT — see [LICENSE](LICENSE).
