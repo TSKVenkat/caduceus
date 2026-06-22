@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "bin": {
-    "caduceus": "./dist/cli.js"
+    "caduceus": "./dist/cli.js",
+    "caduceus-web": "./dist/web/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,13 +23,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "web": "tsx src/web/cli.ts",
     "compress": "tsx src/compress/cli.ts",
     "measure:compress": "tsx src/compress/measure.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.5",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "hono": "^4.12.26",
     "yaml": "^2.6.1",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.1"

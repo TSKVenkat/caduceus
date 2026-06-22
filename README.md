@@ -34,6 +34,14 @@ pnpm build
 node dist/cli.js "your task"
 ```
 
+Web UI (a Hermes-style local server with a live event/token stream):
+
+```bash
+pnpm web        # → http://localhost:4100
+```
+
+Both the CLI and the web server drive the same headless engine (`src/engine/session.ts` → `run()`).
+
 ## Configuration
 
 | Variable | Default | Purpose |
