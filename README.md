@@ -44,6 +44,19 @@ node dist/cli.js "your task"
 
 CLI flags `--model` and `--max-steps` override the environment.
 
+## Sandboxing
+
+The `bash` tool (and any agent-generated scripts it runs) executes with defense-in-depth:
+
+- **Env scrubbing (always on):** secret-looking variables (`*_API_KEY`, `*_TOKEN`, `*_SECRET`, passwords, …) are stripped from the child environment, so agent-run code can't read the agent's own credentials.
+- **OS sandbox via [bubblewrap](https://github.com/containers/bubblewrap):** when `bwrap` is present, commands run cwd-confined (writes limited to the workspace) with **network off by default**. No root required.
+- **Graceful degradation:** if `bwrap` is missing, `auto` (default) warns once and runs unsandboxed; `CADUCEUS_SANDBOX=on` makes it a hard requirement; `off` disables it.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CADUCEUS_SANDBOX` | `auto` | `off` / `auto` / `on` (require bwrap) |
+| `CADUCEUS_SANDBOX_NET` | `0` | `1` to allow network inside the sandbox |
+
 ## Development
 
 ```bash

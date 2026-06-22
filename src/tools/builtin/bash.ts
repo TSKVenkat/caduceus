@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
+import { buildExec, scrubbedEnv } from "../../exec/sandbox";
 import { defineTool } from "../tool";
 
 const run = promisify(execFile);
@@ -25,11 +26,13 @@ export const bashTool = defineTool({
   schema,
   async execute({ command, timeoutMs }, ctx) {
     const timeout = timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const plan = buildExec(command, ctx.cwd);
     try {
-      const { stdout, stderr } = await run("bash", ["-c", command], {
+      const { stdout, stderr } = await run(plan.file, plan.args, {
         cwd: ctx.cwd,
         timeout,
         maxBuffer: MAX_OUTPUT_BYTES,
+        env: scrubbedEnv(),
         ...(ctx.signal ? { signal: ctx.signal } : {}),
       });
       return render(stdout, stderr, 0);
