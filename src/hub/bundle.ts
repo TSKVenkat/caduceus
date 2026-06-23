@@ -6,11 +6,16 @@ import { decideInstall, type ScanResult } from "./scanner";
 import { appendAudit, ensureHubDirs, HubLock, type HubPaths } from "./state";
 import type { SkillBundle } from "./types";
 
-const SAFE_SEGMENT = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
+// A skill (directory) name must start alphanumeric — it becomes a top-level dir.
+const SAFE_NAME = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
+// A path segment is permissive (dotfiles, __init__.py are legitimate); traversal
+// is blocked by rejecting the reserved "." / ".." segments, not by banning a
+// leading dot/underscore.
+const SAFE_SEGMENT = /^[a-zA-Z0-9._-]+$/;
 
 /** Reject names that could escape the skills directory or are otherwise unsafe. */
 export function validateSkillName(name: string): string {
-  if (!SAFE_SEGMENT.test(name) || name === "." || name === "..") {
+  if (!SAFE_NAME.test(name) || name === "." || name === "..") {
     throw new Error(`Unsafe skill name: ${JSON.stringify(name)}`);
   }
   return name;
@@ -26,11 +31,11 @@ export function validateCategory(category: string): string {
 /** Validate a bundle-relative file path: POSIX, no traversal, no absolute paths. */
 export function validateRelPath(rel: string): string {
   const normalized = rel.replace(/\\/g, "/");
-  if (normalized.startsWith("/") || normalized.includes("..") || normalized.includes("\0")) {
+  if (normalized.startsWith("/") || normalized.includes("\0")) {
     throw new Error(`Unsafe bundle path: ${JSON.stringify(rel)}`);
   }
   const parts = normalized.split("/").filter(Boolean);
-  if (parts.length === 0 || parts.some((seg) => !SAFE_SEGMENT.test(seg))) {
+  if (parts.length === 0 || parts.some((seg) => seg === "." || seg === ".." || !SAFE_SEGMENT.test(seg))) {
     throw new Error(`Unsafe bundle path: ${JSON.stringify(rel)}`);
   }
   return parts.join("/");
