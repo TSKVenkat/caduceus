@@ -3,6 +3,7 @@ import type { ToolRegistry } from "../registry";
 import { bashTool } from "./bash";
 import { listFilesTool } from "./list-files";
 import { multiEditTool } from "./multi-edit";
+import { planTool } from "./plan";
 import { readFileTool } from "./read-file";
 import { searchCodeTool } from "./search";
 import { strReplaceTool } from "./str-replace";
@@ -22,6 +23,7 @@ export const builtinTools: readonly Tool[] = [
   bashTool,
   searchCodeTool,
   listFilesTool,
+  planTool,
 ];
 
 export function registerBuiltins(registry: ToolRegistry): void {
