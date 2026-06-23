@@ -134,6 +134,32 @@ export async function dispatchCommand(
   return command.run(arg, ctx);
 }
 
+/**
+ * Suggest commands for autocomplete. Returns matches while the user is still
+ * typing the command name (before any whitespace); empty once an argument starts.
+ */
+export function suggestCommands(input: string, limit = 6): Command[] {
+  if (!input.startsWith("/")) {
+    return [];
+  }
+  const body = input.slice(1);
+  if (/\s/.test(body)) {
+    return [];
+  }
+  const prefix = body.toLowerCase();
+  const matches: Command[] = [];
+  for (const cmd of COMMANDS) {
+    const names = [cmd.name, ...(cmd.aliases ?? [])];
+    if (names.some((n) => n.startsWith(prefix))) {
+      matches.push(cmd);
+    }
+    if (matches.length >= limit) {
+      break;
+    }
+  }
+  return matches;
+}
+
 export function helpText(): string {
   const categories: CommandCategory[] = ["Session", "Config", "Tools & Skills", "Info"];
   const sections = categories.map((category) => {
