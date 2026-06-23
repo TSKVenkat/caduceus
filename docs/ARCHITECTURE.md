@@ -59,13 +59,21 @@ provider's prompt cache across turns.
 A small, composable toolset is registered in a data-driven registry
 (`src/tools/`). The built-in tools are:
 
-- `read_file` (with line ranges and optional line numbers), `write_file`,
+- Files: `read_file` (with line ranges and optional line numbers), `write_file`,
   `str_replace` (one unique edit), `multi_edit` (several atomic edits in one
-  file), `bash`, `search_code` (ripgrep with a grep fallback), and `list_files`.
+  file).
+- Navigation: `search_code` (ripgrep with a grep fallback), `list_files`.
+- Shell: `bash`.
+- Git: `git_status`, `git_diff` (so the agent works from diffs instead of
+  re-reading whole files).
+- Planning: `update_plan` (an explicit task list for multi-step work).
 
 The toolset is deliberately lean. New capabilities are expected to arrive as
 Skills rather than as a growing pile of built-in tools, following the
 minimal-toolset-plus-runtime-synthesis result from Live-SWE-agent [4].
+
+Risky shell commands are classified and gated before they run; see Sandboxing
+below.
 
 ## Skills
 
@@ -113,8 +121,13 @@ in [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Sandboxing
 
-Two layers (`src/exec/`):
+Three layers (`src/exec/`):
 
+- Approval: shell commands are classified for destructive or privilege-escalating
+  patterns (recursive deletes, piping a download into a shell, `sudo`, writes to
+  system paths, force-push, and similar). In `prompt` mode the user confirms
+  before they run; `deny` refuses them; `allow` runs everything. Controlled by
+  `CADUCEUS_APPROVAL`.
 - Environment scrubbing is always on: secret-looking variables are stripped from
   the environment of tool subprocesses.
 - OS isolation via bubblewrap is used when available, confining shell commands to
