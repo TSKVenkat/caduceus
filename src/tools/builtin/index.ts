@@ -2,6 +2,7 @@ import type { Tool } from "../tool";
 import type { ToolRegistry } from "../registry";
 import { bashTool } from "./bash";
 import { listFilesTool } from "./list-files";
+import { multiEditTool } from "./multi-edit";
 import { readFileTool } from "./read-file";
 import { searchCodeTool } from "./search";
 import { strReplaceTool } from "./str-replace";
@@ -17,6 +18,7 @@ export const builtinTools: readonly Tool[] = [
   readFileTool,
   writeFileTool,
   strReplaceTool,
+  multiEditTool,
   bashTool,
   searchCodeTool,
   listFilesTool,
