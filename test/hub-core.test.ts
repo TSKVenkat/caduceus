@@ -90,8 +90,15 @@ describe("bundle validation", () => {
     expect(() => validateSkillName("../evil")).toThrow();
     expect(() => validateSkillName("..")).toThrow();
     expect(() => validateRelPath("../escape")).toThrow();
+    expect(() => validateRelPath("a/../b")).toThrow();
     expect(() => validateRelPath("/abs")).toThrow();
     expect(validateRelPath("dir/file.md")).toBe("dir/file.md");
+  });
+
+  it("allows dotfiles and dunder filenames (no traversal risk)", () => {
+    expect(validateRelPath("scripts/__init__.py")).toBe("scripts/__init__.py");
+    expect(validateRelPath(".gitignore")).toBe(".gitignore");
+    expect(validateRelPath("reference/_helpers.py")).toBe("reference/_helpers.py");
   });
 
   it("hashes deterministically regardless of key order", () => {
