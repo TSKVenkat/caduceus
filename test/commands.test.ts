@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { dispatchCommand, findCommand, helpText, type CommandContext } from "../src/commands/registry";
+import { dispatchCommand, findCommand, helpText, suggestCommands, type CommandContext } from "../src/commands/registry";
 import { ToolRegistry } from "../src/tools/registry";
 import { defineTool } from "../src/tools/tool";
 
@@ -92,6 +92,28 @@ describe("dispatchCommand", () => {
     expect(result).toEqual({ action: "print", text: "Sandbox: on" });
     expect(process.env.CADUCEUS_SANDBOX).toBe("on");
     delete process.env.CADUCEUS_SANDBOX;
+  });
+});
+
+describe("suggestCommands", () => {
+  it("returns nothing without a leading slash", () => {
+    expect(suggestCommands("hel")).toEqual([]);
+  });
+
+  it("filters by name prefix", () => {
+    expect(suggestCommands("/s").map((c) => c.name)).toEqual(["sessions", "sandbox", "skills"]);
+  });
+
+  it("matches aliases", () => {
+    expect(suggestCommands("/res").map((c) => c.name)).toContain("new");
+  });
+
+  it("stops suggesting once an argument begins", () => {
+    expect(suggestCommands("/sandbox on")).toEqual([]);
+  });
+
+  it("lists everything for a bare slash, capped by limit", () => {
+    expect(suggestCommands("/", 3)).toHaveLength(3);
   });
 });
 
