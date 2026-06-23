@@ -1,26 +1,31 @@
 # Caduceus
 
-An open, single-agent **coding agent** that runs on [Ollama Cloud](https://docs.ollama.com/cloud). Give it a task in your terminal (or browser) and it inspects the workspace, edits files, runs commands, and verifies its work in a bounded reason→act loop — with skills, a knowledge layer, memory, prompt compression, sandboxing, subagents, MCP tools, and a streaming CLI/Web UI.
+An open, single-agent **coding agent** that runs on [Ollama Cloud](https://docs.ollama.com/cloud). Give it a task in your terminal (or browser) and it inspects the workspace, edits files, runs commands, and verifies its work in a bounded reason-act loop — with skills, a knowledge layer, memory, prompt compression, sandboxing, subagents, MCP tools, and a streaming CLI/Web UI.
 
 TypeScript · pnpm · Ollama Cloud (OpenAI-compatible). Built from scratch; architecture modeled on the Hermes Agent framework.
 
-```text
-▸ step 1
-  → write_file({"path":"greet.js","content":"console.log('hello from caduceus');"})
-  ✓ write_file
-▸ step 2
-  → bash({"command":"node greet.js"})
-  ✓ bash
-▸ step 3
-I created greet.js and ran it; it printed "hello from caduceus".
+The design is grounded in a documented research phase. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it is built and why,
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md) for what has been measured, and
+[docs/REFERENCES.md](docs/REFERENCES.md) for the sources.
 
-8253 tokens · 12.3s · 3 steps
+```text
+step 1
+  call: write_file({"path":"greet.js","content":"console.log('hello from caduceus');"})
+  ok:   write_file
+step 2
+  call: bash({"command":"node greet.js"})
+  ok:   bash
+step 3
+  I created greet.js and ran it; it printed "hello from caduceus".
+
+8253 tokens, 12.3s, 3 steps
 ```
 
 ## Features
 
-- **Bounded ReAct loop** with a circuit breaker and a per-task step budget.
-- **Tools:** `read_file`, `write_file`, `str_replace` (surgical search/replace edits), `bash`.
+- **Bounded reason-act loop** with a circuit breaker and a per-task step budget.
+- **Tools:** `read_file` (with line ranges), `write_file`, `str_replace` (one unique edit), `multi_edit` (several atomic edits), `bash`, `search_code` (ripgrep with a grep fallback), `list_files`.
 - **Skills** — procedural know-how as `SKILL.md` folders with progressive disclosure; the agent can `create_skill` at runtime (Voyager-style).
 - **Skills hub** — search and install community skills from GitHub or a URL, gated by a security scanner (threat patterns + structural + invisible-unicode) and a trust policy, with quarantine, a provenance lockfile, and an audit log.
 - **Command palette** — the interactive TUI has slash commands (`/help`, `/tools`, `/skills`, `/model`, `/sandbox`, …) with autocomplete and a live status bar.
@@ -41,7 +46,7 @@ export OLLAMA_API_KEY=...        # from https://ollama.com
 
 pnpm dev "summarize this project"   # one-shot task
 pnpm dev                            # interactive TUI (multi-turn chat)
-pnpm web                            # web UI → http://localhost:4100
+pnpm web                            # web UI at http://localhost:4100
 ```
 
 Build a distributable CLI:
@@ -51,7 +56,7 @@ pnpm build
 node dist/cli.js "your task"   # or: caduceus "your task" / caduceus-web
 ```
 
-The CLI and the web server drive the same headless engine (`src/engine/session.ts` → `run()` / `Conversation`).
+The CLI and the web server drive the same headless engine (`src/engine/session.ts`, via `run()` and `Conversation`).
 
 ### Skills hub
 
@@ -60,7 +65,7 @@ Install community skills, with a security scan and recorded provenance:
 ```bash
 caduceus skills search pdf                          # search GitHub taps + catalog
 caduceus skills inspect anthropics/skills/skills/pdf
-caduceus skills install anthropics/skills/skills/pdf   # scan → confirm → install
+caduceus skills install anthropics/skills/skills/pdf   # scan, confirm, install
 caduceus skills install https://example.com/SKILL.md   # single-file skill from a URL
 caduceus skills list                                # installed skills + provenance
 caduceus skills audit                               # the install audit log
@@ -98,13 +103,48 @@ The system prompt is assembled in three tiers — **stable** (identity, tools, s
 - **Sandboxing:** secret-looking env vars are stripped from tool subprocesses; with `bwrap` present, shell runs cwd-confined with network off. Without it, `auto` warns and runs unsandboxed.
 - **Compression:** see [`compressor/`](compressor/) for the LLMLingua sidecar setup (`pnpm compress`).
 
+## Design and research
+
+Before any code, two rounds of research established the design. The full
+write-ups, with verification counts and per-source quality tags, are in
+[`docs/`](docs/). The three findings that shaped the system:
+
+- Single agent, not multi-agent: error amplification rises with decentralization,
+  and multi-agent systems degrade on coding benchmarks where single-agent
+  baselines already exceed 45%.
+- The scaffold is the product: the same model swings about 30 points on GAIA
+  purely from context and tool-call management.
+- Context is a tiered, file-like store assembled per turn: Google's ADK guidance,
+  Google Cloud's context model, and a file-system-abstraction paper converge on
+  this shape.
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) maps each part of the system to the
+research that motivated it; [docs/REFERENCES.md](docs/REFERENCES.md) lists the
+sources.
+
+## Benchmarks
+
+The standard for a result here is a fair, reproducible measurement with equal
+information given to every condition. Full details, caveats, and a retracted
+result are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+Prompt compression with the real LLMLingua-2 model, measured in the agent loop on
+a large prose-context task (read a long note, report one planted fact):
+
+![LLMLingua compression in the loop](docs/assets/llmlingua-loop.svg)
+
+Model tokens for the task fell 32% (4035 to 2727) and the planted fact was still
+reported correctly. Standalone, the README compressed 52% (765 to 367 tokens).
+Compression is lossy and prose-oriented, so it is opt-in and size-gated, not on
+by default. Reproduce with `pnpm measure:compress` and `pnpm compress`.
+
 ## Development
 
 ```bash
 pnpm typecheck   # tsc --noEmit
 pnpm lint        # eslint
 pnpm test        # vitest
-pnpm build       # tsup → dist/
+pnpm build       # tsup to dist/
 ```
 
 ## License
