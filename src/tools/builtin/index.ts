@@ -1,6 +1,7 @@
 import type { Tool } from "../tool";
 import type { ToolRegistry } from "../registry";
 import { bashTool } from "./bash";
+import { gitTools } from "./git";
 import { listFilesTool } from "./list-files";
 import { multiEditTool } from "./multi-edit";
 import { planTool } from "./plan";
@@ -24,6 +25,7 @@ export const builtinTools: readonly Tool[] = [
   searchCodeTool,
   listFilesTool,
   planTool,
+  ...gitTools,
 ];
 
 export function registerBuiltins(registry: ToolRegistry): void {
