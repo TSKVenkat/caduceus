@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadConfig } from "./config";
@@ -58,14 +59,24 @@ async function main(): Promise<void> {
     const session = await buildSession({ cwd, client });
     try {
       const { runTui } = await import("./ui/tui");
-      await runTui(
+      const makeConversation = () =>
         new Conversation({
           client,
           registry: session.registry,
           systemPrompt: session.systemPrompt,
           maxSteps: config.maxSteps,
-        }),
-      );
+        });
+      await runTui({
+        makeConversation,
+        context: {
+          registry: session.registry,
+          cwd,
+          skillsDir: process.env.CADUCEUS_SKILLS_DIR ?? join(cwd, "skills"),
+          sessionDir: join(cwd, ".caduceus", "sessions"),
+          model: config.model,
+          usage: () => totalTokens,
+        },
+      });
     } finally {
       await session.close();
     }

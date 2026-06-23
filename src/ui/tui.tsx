@@ -1,7 +1,8 @@
-import { Box, render, Static, Text } from "ink";
+import { Box, render, Static, Text, useApp } from "ink";
 import Spinner from "ink-spinner";
 import TextInput from "ink-text-input";
 import { useCallback, useRef, useState } from "react";
+import { dispatchCommand, type CommandContext } from "../commands/registry";
 import type { Conversation } from "../engine/conversation";
 import type { RunEvent } from "../loop/orchestrator";
 
@@ -37,9 +38,18 @@ function truncate(text: string, max = 60): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-function App({ conversation }: { conversation: Conversation }) {
+export interface TuiOptions {
+  makeConversation: () => Conversation;
+  context: CommandContext;
+}
+
+function App({ makeConversation, context }: TuiOptions) {
+  const { exit } = useApp();
+  const conversation = useRef<Conversation | null>(null);
+  conversation.current ??= makeConversation();
+
   const [items, setItems] = useState<LogItem[]>([
-    { id: 0, kind: "info", text: "Caduceus — type a task and press Enter. Ctrl+C to quit." },
+    { id: 0, kind: "info", text: "Caduceus — type a task, or /help for commands. Ctrl+C to quit." },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -51,15 +61,37 @@ function App({ conversation }: { conversation: Conversation }) {
 
   const submit = useCallback(
     async (value: string) => {
-      const task = value.trim();
-      if (!task || busy) {
+      const text = value.trim();
+      if (!text || busy) {
         return;
       }
       setInput("");
-      add("user", task);
+
+      if (text.startsWith("/")) {
+        const result = await dispatchCommand(text, context);
+        if (result) {
+          if (result.action === "print") {
+            add("info", result.text);
+          } else if (result.action === "clear") {
+            setItems([]);
+          } else if (result.action === "new") {
+            conversation.current = makeConversation();
+            setItems([{ id: nextId.current++, kind: "info", text: "New conversation." }]);
+          } else {
+            exit();
+          }
+          return;
+        }
+      }
+
+      const convo = conversation.current;
+      if (!convo) {
+        return;
+      }
+      add("user", text);
       setBusy(true);
       try {
-        const result = await conversation.send(task, {
+        const result = await convo.send(text, {
           onEvent: (event: RunEvent) => {
             if (event.type === "step") {
               add("step", `▸ step ${event.n}`);
@@ -77,7 +109,7 @@ function App({ conversation }: { conversation: Conversation }) {
         setBusy(false);
       }
     },
-    [add, busy, conversation],
+    [add, busy, context, exit, makeConversation],
   );
 
   return (
@@ -99,15 +131,15 @@ function App({ conversation }: { conversation: Conversation }) {
       ) : (
         <Box>
           <Text color="green">❯ </Text>
-          <TextInput value={input} onChange={setInput} onSubmit={submit} placeholder="Ask Caduceus…" />
+          <TextInput value={input} onChange={setInput} onSubmit={submit} placeholder="Ask Caduceus, or /help…" />
         </Box>
       )}
     </Box>
   );
 }
 
-/** Render the interactive terminal chat over a Conversation. Requires a TTY. */
-export async function runTui(conversation: Conversation): Promise<void> {
-  const { waitUntilExit } = render(<App conversation={conversation} />);
+/** Render the interactive terminal chat. Requires a TTY. */
+export async function runTui(options: TuiOptions): Promise<void> {
+  const { waitUntilExit } = render(<App makeConversation={options.makeConversation} context={options.context} />);
   await waitUntilExit();
 }
