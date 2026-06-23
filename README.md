@@ -25,7 +25,7 @@ step 3
 ## Features
 
 - **Bounded reason-act loop** with a circuit breaker and a per-task step budget.
-- **Tools:** `read_file` (with line ranges), `write_file`, `str_replace` (one unique edit), `multi_edit` (several atomic edits), `bash`, `search_code` (ripgrep with a grep fallback), `list_files`.
+- **Tools:** `read_file` (with line ranges), `write_file`, `str_replace` (one unique edit), `multi_edit` (several atomic edits), `bash`, `search_code` (ripgrep with a grep fallback), `list_files`, `update_plan` (track multi-step work).
 - **Skills** — procedural know-how as `SKILL.md` folders with progressive disclosure; the agent can `create_skill` at runtime (Voyager-style).
 - **Skills hub** — search and install community skills from GitHub or a URL, gated by a security scanner (threat patterns + structural + invisible-unicode) and a trust policy, with quarantine, a provenance lockfile, and an audit log.
 - **Command palette** — the interactive TUI has slash commands (`/help`, `/tools`, `/skills`, `/model`, `/sandbox`, …) with autocomplete and a live status bar.
