@@ -5,6 +5,8 @@ export interface ToolContext {
   /** Working directory tool actions resolve against. */
   cwd: string;
   signal?: AbortSignal;
+  /** Optional gate asked before running a risky action; absent means allow. */
+  confirm?: (request: { tool: string; command: string; reason: string }) => Promise<boolean>;
 }
 
 /** Thrown when tool arguments fail schema validation; surfaced to the model as feedback. */

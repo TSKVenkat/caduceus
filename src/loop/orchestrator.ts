@@ -1,3 +1,4 @@
+import type { Approver } from "../exec/approval";
 import type { ModelClient } from "../model/client";
 import { buildSystemPrompt } from "../prompt/system";
 import { ToolArgsError } from "../tools/tool";
@@ -35,6 +36,8 @@ export interface RunOptions {
   onEvent?: (event: RunEvent) => void;
   /** Stream assistant text deltas live (forwarded to the model client). */
   onToken?: (text: string) => void;
+  /** Gate asked before a tool runs a risky action; absent means allow everything. */
+  confirm?: Approver;
   /** When set, tool output at/above `compressMinChars` is compressed (lossy). */
   compressor?: ToolOutputCompressor;
   compressMinChars?: number;
@@ -97,7 +100,11 @@ export async function runTurn(messages: Message[], options: RunOptions): Promise
     let stepHadError = false;
     for (const call of reply.toolCalls) {
       emit({ type: "tool_call", call });
-      const result = await runTool(call, registry, { cwd, ...(options.signal ? { signal: options.signal } : {}) });
+      const result = await runTool(call, registry, {
+        cwd,
+        ...(options.signal ? { signal: options.signal } : {}),
+        ...(options.confirm ? { confirm: options.confirm } : {}),
+      });
       stepHadError ||= result.isError;
 
       let content = result.content;
@@ -149,7 +156,7 @@ interface ToolOutcome {
 async function runTool(
   call: ToolCall,
   registry: ToolRegistry,
-  ctx: { cwd: string; signal?: AbortSignal },
+  ctx: { cwd: string; signal?: AbortSignal; confirm?: Approver },
 ): Promise<ToolOutcome> {
   const tool = registry.get(call.name);
   if (!tool) {

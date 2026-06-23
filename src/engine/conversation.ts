@@ -11,6 +11,8 @@ export interface ConversationOptions {
   messages?: Message[];
   maxSteps?: number;
   cwd?: string;
+  /** Session-wide approval gate for risky tool actions. */
+  confirm?: RunOptions["confirm"];
 }
 
 /** Per-turn knobs forwarded to the loop (events, streaming, cancellation, compression). */
@@ -41,6 +43,7 @@ export class Conversation {
       registry: this.options.registry,
       maxSteps: this.options.maxSteps,
       cwd: this.options.cwd,
+      ...(this.options.confirm ? { confirm: this.options.confirm } : {}),
       ...turn,
     });
   }

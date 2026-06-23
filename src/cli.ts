@@ -6,6 +6,7 @@ import { LLMLinguaCompressor } from "./compress/llmlingua";
 import { loadConfig } from "./config";
 import { Conversation } from "./engine/conversation";
 import { buildSession } from "./engine/session";
+import { type Approver, cliApprover, resolveApprovalMode } from "./exec/approval";
 import { run } from "./loop/orchestrator";
 import { OllamaClient } from "./model/ollama";
 import { createRenderer } from "./ui/render";
@@ -68,12 +69,13 @@ async function main(): Promise<void> {
     const session = await buildSession({ cwd, client });
     try {
       const { runTui } = await import("./ui/tui");
-      const makeConversation = () =>
+      const makeConversation = (confirm?: Approver) =>
         new Conversation({
           client,
           registry: session.registry,
           systemPrompt: session.systemPrompt,
           maxSteps: config.maxSteps,
+          ...(confirm ? { confirm } : {}),
         });
       await runTui({
         makeConversation,
@@ -104,11 +106,13 @@ async function main(): Promise<void> {
   const compressor = process.env.CADUCEUS_COMPRESS === "1" ? new LLMLinguaCompressor() : undefined;
   const started = Date.now();
   try {
+    const approver = cliApprover(resolveApprovalMode());
     const result = await run(task, {
       client,
       registry: session.registry,
       systemPrompt: session.systemPrompt,
       maxSteps: config.maxSteps,
+      ...(approver ? { confirm: approver } : {}),
       onEvent: renderer.onEvent,
       ...(streaming ? { onToken: renderer.onToken } : {}),
       ...(compressor
