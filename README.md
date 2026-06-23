@@ -22,6 +22,8 @@ I created greet.js and ran it; it printed "hello from caduceus".
 - **Bounded ReAct loop** with a circuit breaker and a per-task step budget.
 - **Tools:** `read_file`, `write_file`, `str_replace` (surgical search/replace edits), `bash`.
 - **Skills** — procedural know-how as `SKILL.md` folders with progressive disclosure; the agent can `create_skill` at runtime (Voyager-style).
+- **Skills hub** — search and install community skills from GitHub or a URL, gated by a security scanner (threat patterns + structural + invisible-unicode) and a trust policy, with quarantine, a provenance lockfile, and an audit log.
+- **Command palette** — the interactive TUI has slash commands (`/help`, `/tools`, `/skills`, `/model`, `/sandbox`, …) with autocomplete and a live status bar.
 - **Knowledge (OKF)** — a Markdown concept bundle ([Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)) the agent reads and authors.
 - **Memory** — flat-file episodic lessons (`remember`/`recall`), strict-write.
 - **Prompt compression** — real [LLMLingua](https://github.com/microsoft/LLMLingua) via a Python sidecar (opt-in).
@@ -50,6 +52,22 @@ node dist/cli.js "your task"   # or: caduceus "your task" / caduceus-web
 ```
 
 The CLI and the web server drive the same headless engine (`src/engine/session.ts` → `run()` / `Conversation`).
+
+### Skills hub
+
+Install community skills, with a security scan and recorded provenance:
+
+```bash
+caduceus skills search pdf                          # search GitHub taps + catalog
+caduceus skills inspect anthropics/skills/skills/pdf
+caduceus skills install anthropics/skills/skills/pdf   # scan → confirm → install
+caduceus skills install https://example.com/SKILL.md   # single-file skill from a URL
+caduceus skills list                                # installed skills + provenance
+caduceus skills audit                               # the install audit log
+caduceus skills tap add owner/repo                  # add a custom GitHub source
+```
+
+Trusted repos (`anthropics/skills`, `openai/skills`) may install `caution`-rated skills; community sources are blocked on any finding unless you pass `--force`. State lives in `<skills-dir>/.hub/` (lockfile, audit log, taps, quarantine). Set `GITHUB_TOKEN` to raise GitHub's rate limit.
 
 ## Configuration
 

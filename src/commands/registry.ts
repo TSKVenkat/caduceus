@@ -1,5 +1,6 @@
 import { loadSkills } from "../skills/loader";
 import { listSessions } from "../engine/store";
+import { Hub } from "../hub";
 import type { ToolRegistry } from "../tools/registry";
 
 /** What a command asks the host (CLI/TUI) to do. */
@@ -89,16 +90,10 @@ export const COMMANDS: Command[] = [
   {
     name: "skills",
     category: "Tools & Skills",
-    description: "List installed skills",
-    async run(_arg, ctx) {
-      const skills = await loadSkills(ctx.skillsDir);
-      if (skills.length === 0) {
-        return { action: "print", text: "No skills installed." };
-      }
-      return {
-        action: "print",
-        text: ["Skills:", ...skills.map((s) => `  ${s.name} — ${s.description}`)].join("\n"),
-      };
+    description: "List skills, or search/inspect/install from the hub",
+    argHint: "[search <q> | inspect <id> | install <id>]",
+    async run(arg, ctx) {
+      return skillsCommand(arg, ctx);
     },
   },
   // Info
@@ -107,6 +102,57 @@ export const COMMANDS: Command[] = [
   { name: "help", aliases: ["commands"], category: "Info", description: "List slash commands", run: () => ({ action: "print", text: helpText() }) },
   { name: "quit", aliases: ["exit"], category: "Info", description: "Exit", run: () => ({ action: "quit" }) },
 ];
+
+/**
+ * `/skills [search|inspect|install] …` — read-only sub-actions plus install.
+ * Install runs the full scan, but without an interactive confirmation prompt:
+ * skills that need confirmation are deferred to `caduceus skills install` on the
+ * command line. Dangerous skills are always blocked.
+ */
+async function skillsCommand(arg: string, ctx: CommandContext): Promise<CommandResult> {
+  const [sub, ...words] = arg.trim().split(/\s+/).filter(Boolean);
+  const token = words.join(" ");
+
+  if (!sub || sub === "list") {
+    const skills = await loadSkills(ctx.skillsDir);
+    if (skills.length === 0) {
+      return { action: "print", text: "No skills installed. Try /skills search <query>." };
+    }
+    return { action: "print", text: ["Skills:", ...skills.map((s) => `  ${s.name} — ${s.description}`)].join("\n") };
+  }
+
+  const hub = new Hub({ skillsDir: ctx.skillsDir });
+
+  if (sub === "search") {
+    const results = await hub.search(token);
+    if (results.length === 0) {
+      return { action: "print", text: `No skills found for "${token}".` };
+    }
+    return { action: "print", text: ["Found:", ...results.map((r) => `  ${r.name} [${r.trustLevel}] — ${r.description}\n    ${r.identifier}`)].join("\n") };
+  }
+
+  if (sub === "inspect") {
+    const meta = await hub.inspect(token);
+    if (!meta) {
+      return { action: "print", text: `Could not find '${token}'.` };
+    }
+    return { action: "print", text: `${meta.name} [${meta.trustLevel}]\n${meta.description}\nidentifier: ${meta.identifier}` };
+  }
+
+  if (sub === "install") {
+    try {
+      const result = await hub.install(token, { confirm: () => false });
+      if (result.status === "declined") {
+        return { action: "print", text: `'${token}' needs confirmation — run: caduceus skills install ${token}` };
+      }
+      return { action: "print", text: `Installed '${result.scan.skillName}'. Restart the session to load it.` };
+    } catch (error) {
+      return { action: "print", text: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  return { action: "print", text: "Usage: /skills [search <q> | inspect <id> | install <id>]" };
+}
 
 const byName = new Map<string, Command>(
   COMMANDS.flatMap((cmd) => [cmd.name, ...(cmd.aliases ?? [])].map((n) => [n, cmd] as const)),

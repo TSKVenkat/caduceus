@@ -20,6 +20,15 @@ function loadDotenv(): void {
 async function main(): Promise<void> {
   loadDotenv();
 
+  // `caduceus skills …` routes to the skills hub CLI before the normal task flow.
+  if (process.argv[2] === "skills") {
+    const { runSkillsCli } = await import("./cli-skills");
+    process.exitCode = await runSkillsCli(process.argv.slice(3), {
+      skillsDir: process.env.CADUCEUS_SKILLS_DIR ?? join(process.cwd(), "skills"),
+    });
+    return;
+  }
+
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {

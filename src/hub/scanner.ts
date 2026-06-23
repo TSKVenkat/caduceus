@@ -221,7 +221,15 @@ function determineVerdict(findings: Finding[]): Verdict {
   return "safe";
 }
 
-/** anthropics/openai skills are trusted; agent-authored is its own tier; rest are community. */
+/** Repos whose skills are trusted. Matched on exact `owner/repo`, not a prefix. */
+const TRUSTED_REPOS = new Set(["anthropics/skills", "openai/skills"]);
+
+/**
+ * Resolve a trust level from a source string. The string is either a trust
+ * keyword (`builtin`/`agent-created`/`official`) or an `owner/repo[/...]`
+ * identifier. Trust is granted only on an exact `owner/repo` match so a repo
+ * like `openai/evilfork` cannot impersonate a trusted source by prefix.
+ */
 export function resolveTrustLevel(source: string): TrustLevel {
   const lower = source.toLowerCase();
   if (lower === "builtin") {
@@ -230,14 +238,22 @@ export function resolveTrustLevel(source: string): TrustLevel {
   if (lower === "agent-created") {
     return "agent-created";
   }
-  if (lower.startsWith("anthropics/") || lower.startsWith("openai/") || lower === "official") {
+  if (lower === "official") {
+    return "trusted";
+  }
+  const parts = lower.split("/");
+  if (parts.length >= 2 && TRUSTED_REPOS.has(`${parts[0]}/${parts[1]}`)) {
     return "trusted";
   }
   return "community";
 }
 
-/** Scan an in-memory skill bundle and produce a verdict. */
-export function scanBundle(input: ScanInput, source: string): ScanResult {
+/**
+ * Scan an in-memory skill bundle and produce a verdict. `trustLevel`, when
+ * provided by a source adapter, is authoritative; otherwise it is derived from
+ * `source`.
+ */
+export function scanBundle(input: ScanInput, source: string, trustLevel?: TrustLevel): ScanResult {
   const findings: Finding[] = [
     ...checkStructure(input.files),
     ...Object.entries(input.files).flatMap(([path, content]) => scanText(path, content)),
@@ -245,7 +261,7 @@ export function scanBundle(input: ScanInput, source: string): ScanResult {
   return {
     skillName: input.name,
     source,
-    trustLevel: resolveTrustLevel(source),
+    trustLevel: trustLevel ?? resolveTrustLevel(source),
     verdict: determineVerdict(findings),
     findings,
   };
