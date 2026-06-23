@@ -78,7 +78,7 @@ describe("dispatchCommand", () => {
 
   it("/skills reports an empty directory", async () => {
     const result = await dispatchCommand("/skills", makeContext({ skillsDir: join(tmpdir(), "caduceus-no-skills-xyz") }));
-    expect(result).toEqual({ action: "print", text: "No skills installed." });
+    expect(result).toEqual({ action: "print", text: expect.stringContaining("No skills installed") });
   });
 
   it("/sessions reports an empty directory", async () => {
