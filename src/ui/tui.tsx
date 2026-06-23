@@ -5,6 +5,7 @@ import { basename } from "node:path";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { dispatchCommand, suggestCommands, type CommandContext } from "../commands/registry";
 import type { Conversation } from "../engine/conversation";
+import { type ApprovalRequest, type Approver, denyApprover, resolveApprovalMode } from "../exec/approval";
 import type { RunEvent } from "../loop/orchestrator";
 
 type Kind = "info" | "user" | "step" | "tool" | "ok" | "err" | "answer";
@@ -40,14 +41,13 @@ function truncate(text: string, max = 60): string {
 }
 
 export interface TuiOptions {
-  makeConversation: () => Conversation;
+  makeConversation: (confirm?: Approver) => Conversation;
   context: CommandContext;
 }
 
 function App({ makeConversation, context }: TuiOptions) {
   const { exit } = useApp();
-  const conversation = useRef<Conversation | null>(null);
-  conversation.current ??= makeConversation();
+  const nextId = useRef(1);
 
   const [items, setItems] = useState<LogItem[]>([
     { id: 0, kind: "info", text: "Caduceus — type a task, or /help for commands. Ctrl+C to quit." },
@@ -55,11 +55,48 @@ function App({ makeConversation, context }: TuiOptions) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState(0);
-  const nextId = useRef(1);
+  const [pending, setPending] = useState<ApprovalRequest | null>(null);
+  const pendingRef = useRef<{ req: ApprovalRequest; resolve: (ok: boolean) => void } | null>(null);
 
   const add = useCallback((kind: Kind, text: string) => {
     setItems((prev) => [...prev, { id: nextId.current++, kind, text }]);
   }, []);
+
+  // Approval gate: in prompt mode, a risky command pauses the turn until the
+  // user answers here in the UI.
+  const approver = useMemo<Approver | undefined>(() => {
+    const mode = resolveApprovalMode();
+    if (mode === "allow") {
+      return undefined;
+    }
+    if (mode === "deny") {
+      return denyApprover;
+    }
+    return (req) =>
+      new Promise<boolean>((resolve) => {
+        pendingRef.current = { req, resolve };
+        setPending(req);
+      });
+  }, []);
+
+  const conversation = useRef<Conversation | null>(null);
+  conversation.current ??= makeConversation(approver);
+
+  // Answer a pending approval prompt (y allows, anything else denies).
+  useInput(
+    (char) => {
+      const p = pendingRef.current;
+      if (!p) {
+        return;
+      }
+      const allow = char.toLowerCase() === "y";
+      add(allow ? "ok" : "err", `${allow ? "approved" : "denied"}: ${p.req.command}`);
+      pendingRef.current = null;
+      setPending(null);
+      p.resolve(allow);
+    },
+    { isActive: pending !== null },
+  );
 
   const suggestions = useMemo(() => (busy ? [] : suggestCommands(input)), [busy, input]);
 
@@ -140,7 +177,13 @@ function App({ makeConversation, context }: TuiOptions) {
         )}
       </Static>
 
-      {busy ? (
+      {pending ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="yellow">Approval needed: {pending.reason}</Text>
+          <Text>  {pending.command}</Text>
+          <Text dimColor>Run it? Press y to allow, any other key to deny.</Text>
+        </Box>
+      ) : busy ? (
         <Box>
           <Text color="cyan">
             <Spinner type="dots" />

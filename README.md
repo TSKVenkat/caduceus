@@ -87,6 +87,7 @@ Trusted repos (`anthropics/skills`, `openai/skills`) may install `caution`-rated
 | `CADUCEUS_RETRIES` | `3` | Attempts per request (backoff on 429/5xx/network) |
 | `CADUCEUS_TIMEOUT_MS` | `120000` | Per-attempt request timeout |
 | `CADUCEUS_STREAM` | `0` | `1` streams the model's output live |
+| `CADUCEUS_APPROVAL` | `prompt` if interactive, else `allow` | Gate risky shell commands: `allow` / `deny` / `prompt` |
 | `CADUCEUS_SANDBOX` | `auto` | `off` / `auto` / `on` (require bwrap) |
 | `CADUCEUS_SANDBOX_NET` | `0` | `1` to allow network inside the sandbox |
 | `CADUCEUS_COMPRESS` | `0` | `1` compresses large tool output via LLMLingua |
@@ -100,6 +101,7 @@ CLI flags `--model` and `--max-steps` override the environment.
 The system prompt is assembled in three tiers — **stable** (identity, tools, skill catalog), **context** (project files, OKF knowledge, memory, artifacts), **volatile** (timestamp) — in that order, so the long prefix stays cache-friendly. Skills and OKF knowledge share one Markdown+frontmatter substrate (`src/markdown/frontmatter.ts`). A `Conversation` keeps history across turns; sessions persist to `.caduceus/sessions`.
 
 - **MCP:** drop a `.caduceus/mcp.json` (`{ "mcpServers": { "name": { "command": "...", "args": [...] } } }` for stdio, or `{ "url": "..." }` for HTTP); tools register as `mcp__<server>__<tool>`.
+- **Approval:** risky shell commands (recursive deletes, piping a download into a shell, `sudo`, writes to system paths, force-push, and similar) are classified and gated. In `prompt` mode the interactive UI asks before running them; `deny` refuses them and lets the agent adapt; `allow` runs everything.
 - **Sandboxing:** secret-looking env vars are stripped from tool subprocesses; with `bwrap` present, shell runs cwd-confined with network off. Without it, `auto` warns and runs unsandboxed.
 - **Compression:** see [`compressor/`](compressor/) for the LLMLingua sidecar setup (`pnpm compress`).
 

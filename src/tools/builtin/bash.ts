@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
+import { classifyCommand } from "../../exec/approval";
 import { buildExec, scrubbedEnv } from "../../exec/sandbox";
 import { defineTool } from "../tool";
 
@@ -25,6 +26,14 @@ export const bashTool = defineTool({
   description: "Run a shell command in the workspace and return its combined output.",
   schema,
   async execute({ command, timeoutMs }, ctx) {
+    const risk = classifyCommand(command);
+    if (risk.dangerous && ctx.confirm) {
+      const approved = await ctx.confirm({ tool: "bash", command, reason: risk.reason ?? "risky command" });
+      if (!approved) {
+        return `Refused: ${risk.reason}. The command was not run. Ask the user to approve it, or take a safer approach.`;
+      }
+    }
+
     const timeout = timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const plan = buildExec(command, ctx.cwd);
     try {
