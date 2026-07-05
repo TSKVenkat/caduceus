@@ -1,4 +1,4 @@
-import { Box, render, Static, Text, useApp, useInput } from "ink";
+import { Box, render, Static, Text, useApp, useInput, useStdout } from "ink";
 import Spinner from "ink-spinner";
 import TextInput from "ink-text-input";
 import { basename } from "node:path";
@@ -7,8 +7,9 @@ import { dispatchCommand, suggestCommands, type CommandContext } from "../comman
 import type { Conversation } from "../engine/conversation";
 import { type ApprovalRequest, type Approver, denyApprover, resolveApprovalMode } from "../exec/approval";
 import type { RunEvent } from "../loop/orchestrator";
+import { pickLogo } from "./banner";
 
-type Kind = "info" | "user" | "step" | "tool" | "ok" | "err" | "answer";
+type Kind = "banner" | "user" | "answer" | "tool" | "ok" | "err" | "info";
 
 interface LogItem {
   id: number;
@@ -16,28 +17,95 @@ interface LogItem {
   text: string;
 }
 
-const COLOR: Record<Kind, string | undefined> = {
-  info: "gray",
-  user: "blue",
-  step: "cyan",
-  tool: "gray",
-  ok: "green",
-  err: "red",
-  answer: undefined,
-};
-
-const PREFIX: Record<Kind, string> = {
-  info: "",
-  user: "❯ ",
-  step: "",
-  tool: "  ",
-  ok: "  ",
-  err: "  ",
-  answer: "",
-};
-
-function truncate(text: string, max = 60): string {
+function truncate(text: string, max = 64): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function Banner({ width, model }: { width: number; model: string }) {
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={2} marginBottom={1}>
+      {pickLogo(width).map((line, i) => (
+        <Text key={i} color="cyan" bold>
+          {line}
+        </Text>
+      ))}
+      <Box marginTop={1} flexDirection="column">
+        <Text dimColor>An open coding agent on Ollama Cloud.</Text>
+        <Box>
+          <Text dimColor>model </Text>
+          <Text color="cyan">{model}</Text>
+          <Text dimColor>{"  ·  type "}</Text>
+          <Text color="magenta">/help</Text>
+          <Text dimColor>{"  ·  Ctrl+C to quit"}</Text>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+function Line({ item, width, model }: { item: LogItem; width: number; model: string }) {
+  switch (item.kind) {
+    case "banner":
+      return <Banner width={width} model={model} />;
+    case "user":
+      return (
+        <Box marginTop={1}>
+          <Text color="blueBright">▌ </Text>
+          <Text bold>{item.text}</Text>
+        </Box>
+      );
+    case "answer":
+      return (
+        <Box marginTop={1}>
+          <Text color="cyan">◆ </Text>
+          <Text>{item.text}</Text>
+        </Box>
+      );
+    case "tool": {
+      const open = item.text.indexOf("(");
+      const name = open > 0 ? item.text.slice(0, open) : item.text;
+      const args = open > 0 ? item.text.slice(open) : "";
+      return (
+        <Box>
+          <Text color="yellow">{"  ↳ "}</Text>
+          <Text color="yellow">{name}</Text>
+          <Text dimColor>{args}</Text>
+        </Box>
+      );
+    }
+    case "ok":
+      return <Text color="green">{`  ✓ ${item.text}`}</Text>;
+    case "err":
+      return <Text color="red">{`  ✗ ${item.text}`}</Text>;
+    default:
+      return <Text dimColor>{item.text}</Text>;
+  }
+}
+
+function StatusBar({ model, cwd, tokens, sandbox }: { model: string; cwd: string; tokens: number; sandbox: string }) {
+  return (
+    <Box marginTop={1} justifyContent="space-between">
+      <Box>
+        <Text backgroundColor="cyan" color="black" bold>
+          {" caduceus "}
+        </Text>
+        <Text backgroundColor="gray" color="black">
+          {` ${model} `}
+        </Text>
+      </Box>
+      <Box>
+        <Text backgroundColor="gray" color="black">
+          {` ${basename(cwd) || cwd} `}
+        </Text>
+        <Text backgroundColor={sandbox === "off" ? "red" : "green"} color="black">
+          {` sandbox:${sandbox} `}
+        </Text>
+        <Text backgroundColor="blue" color="white">
+          {` ${tokens} tok `}
+        </Text>
+      </Box>
+    </Box>
+  );
 }
 
 export interface TuiOptions {
@@ -47,11 +115,11 @@ export interface TuiOptions {
 
 function App({ makeConversation, context }: TuiOptions) {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const width = stdout?.columns ?? 80;
   const nextId = useRef(1);
 
-  const [items, setItems] = useState<LogItem[]>([
-    { id: 0, kind: "info", text: "Caduceus — type a task, or /help for commands. Ctrl+C to quit." },
-  ]);
+  const [items, setItems] = useState<LogItem[]>([{ id: 0, kind: "banner", text: "" }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState(0);
@@ -62,8 +130,7 @@ function App({ makeConversation, context }: TuiOptions) {
     setItems((prev) => [...prev, { id: nextId.current++, kind, text }]);
   }, []);
 
-  // Approval gate: in prompt mode, a risky command pauses the turn until the
-  // user answers here in the UI.
+  // Approval gate: in prompt mode, a risky command pauses the turn until answered.
   const approver = useMemo<Approver | undefined>(() => {
     const mode = resolveApprovalMode();
     if (mode === "allow") {
@@ -82,7 +149,9 @@ function App({ makeConversation, context }: TuiOptions) {
   const conversation = useRef<Conversation | null>(null);
   conversation.current ??= makeConversation(approver);
 
-  // Answer a pending approval prompt (y allows, anything else denies).
+  const suggestions = useMemo(() => (busy ? [] : suggestCommands(input)), [busy, input]);
+
+  // Answer a pending approval (y allows, anything else denies).
   useInput(
     (char) => {
       const p = pendingRef.current;
@@ -98,8 +167,6 @@ function App({ makeConversation, context }: TuiOptions) {
     { isActive: pending !== null },
   );
 
-  const suggestions = useMemo(() => (busy ? [] : suggestCommands(input)), [busy, input]);
-
   // Tab completes the current slash command to the top suggestion.
   useInput(
     (_char, key) => {
@@ -107,7 +174,7 @@ function App({ makeConversation, context }: TuiOptions) {
         setInput(`/${suggestions[0]?.name ?? ""} `);
       }
     },
-    { isActive: !busy },
+    { isActive: !busy && pending === null },
   );
 
   const submit = useCallback(
@@ -126,7 +193,7 @@ function App({ makeConversation, context }: TuiOptions) {
           } else if (result.action === "clear") {
             setItems([]);
           } else if (result.action === "new") {
-            conversation.current = makeConversation();
+            conversation.current = makeConversation(approver);
             setItems([{ id: nextId.current++, kind: "info", text: "New conversation." }]);
           } else {
             exit();
@@ -147,11 +214,10 @@ function App({ makeConversation, context }: TuiOptions) {
           onEvent: (event: RunEvent) => {
             if (event.type === "step") {
               setSteps(event.n);
-              add("step", `▸ step ${event.n}`);
             } else if (event.type === "tool_call") {
-              add("tool", `→ ${event.call.name}(${truncate(JSON.stringify(event.call.arguments))})`);
+              add("tool", `${event.call.name}(${truncate(JSON.stringify(event.call.arguments))})`);
             } else if (event.type === "tool_result") {
-              add(event.isError ? "err" : "ok", `${event.isError ? "✗" : "✓"} ${event.name}`);
+              add(event.isError ? "err" : "ok", event.isError ? `${event.name}: ${truncate(event.content, 80)}` : event.name);
             }
           },
         });
@@ -162,7 +228,7 @@ function App({ makeConversation, context }: TuiOptions) {
         setBusy(false);
       }
     },
-    [add, busy, context, exit, makeConversation],
+    [add, approver, busy, context, exit, makeConversation],
   );
 
   const sandbox = process.env.CADUCEUS_SANDBOX ?? "auto";
@@ -171,58 +237,51 @@ function App({ makeConversation, context }: TuiOptions) {
     <Box flexDirection="column">
       <Static items={items}>
         {(item) => (
-          <Box key={item.id}>
-            <Text color={COLOR[item.kind]}>{PREFIX[item.kind] + item.text}</Text>
+          <Box key={item.id} flexDirection="column">
+            <Line item={item} width={width} model={context.model} />
           </Box>
         )}
       </Static>
 
       {pending ? (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color="yellow">Approval needed: {pending.reason}</Text>
-          <Text>  {pending.command}</Text>
-          <Text dimColor>Run it? Press y to allow, any other key to deny.</Text>
+        <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginTop={1}>
+          <Text color="yellow" bold>
+            Approval needed
+          </Text>
+          <Text dimColor>{pending.reason}</Text>
+          <Text>{pending.command}</Text>
+          <Text dimColor>Press y to allow, any other key to deny.</Text>
         </Box>
       ) : busy ? (
-        <Box>
+        <Box marginTop={1}>
           <Text color="cyan">
             <Spinner type="dots" />
           </Text>
-          <Text dimColor>{steps > 0 ? ` working… (step ${steps})` : " working…"}</Text>
+          <Text dimColor>{steps > 0 ? `  working  ·  step ${steps}` : "  working"}</Text>
         </Box>
       ) : (
-        <Box flexDirection="column">
-          <Box>
-            <Text color="green">❯ </Text>
-            <TextInput value={input} onChange={setInput} onSubmit={submit} placeholder="Ask Caduceus, or /help…" />
+        <Box flexDirection="column" marginTop={1}>
+          <Box borderStyle="round" borderColor="cyan" paddingX={1}>
+            <Text color="cyan">❯ </Text>
+            <TextInput value={input} onChange={setInput} onSubmit={submit} placeholder="Ask Caduceus, or /help" />
           </Box>
           {suggestions.length > 0 && (
-            <Box flexDirection="column" marginLeft={2}>
-              {suggestions.map((cmd, index) => (
-                <Text key={cmd.name} color={index === 0 ? "cyan" : "gray"} dimColor={index !== 0}>
-                  {`/${cmd.name}`.padEnd(12)} {cmd.description}
-                  {index === 0 ? "  ⇥ tab" : ""}
-                </Text>
+            <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
+              {suggestions.map((cmd, i) => (
+                <Box key={cmd.name}>
+                  <Text color={i === 0 ? "cyan" : "gray"} bold={i === 0}>
+                    {`/${cmd.name}`.padEnd(12)}
+                  </Text>
+                  <Text dimColor>{cmd.description}</Text>
+                  {i === 0 ? <Text color="magenta">{"  ⇥ tab"}</Text> : null}
+                </Box>
               ))}
             </Box>
           )}
         </Box>
       )}
 
-      <Box marginTop={1}>
-        <Text backgroundColor="blue" color="white">
-          {` ${context.model} `}
-        </Text>
-        <Text backgroundColor="gray" color="black">
-          {` ${basename(context.cwd) || context.cwd} `}
-        </Text>
-        <Text backgroundColor="gray" color="black">
-          {` sandbox:${sandbox} `}
-        </Text>
-        <Text backgroundColor="gray" color="black">
-          {` ${context.usage()} tok `}
-        </Text>
-      </Box>
+      <StatusBar model={context.model} cwd={context.cwd} tokens={context.usage()} sandbox={sandbox} />
     </Box>
   );
 }
