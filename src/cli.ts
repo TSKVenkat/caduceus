@@ -30,6 +30,13 @@ async function main(): Promise<void> {
     return;
   }
 
+  // `caduceus gateway …` routes to the gateway CLI.
+  if (process.argv[2] === "gateway") {
+    const { runGatewayCli } = await import("./gateway/cli.js");
+    process.exitCode = await runGatewayCli(process.argv.slice(2));
+    return;
+  }
+
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
