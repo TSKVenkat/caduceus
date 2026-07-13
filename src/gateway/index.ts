@@ -18,6 +18,15 @@ export { GatewayRunner, gatewayHome } from "./run.js";
 export { SlackAdapter } from "./platforms/slack.js";
 export { markdownToMrkdwn, chunkText } from "./platforms/slack-format.js";
 
+export { WhatsAppAdapter } from "./platforms/whatsapp.js";
+export {
+  canonicalizeIdentifier,
+  canonicalWhatsAppId,
+  isGroupJid,
+  isDmJid,
+  getExtensionFromMimeType,
+} from "./platforms/whatsapp-lid.js";
+
 export type {
   SessionSource,
   MessageEvent,
