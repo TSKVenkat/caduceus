@@ -1,0 +1,60 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: caduceus-gateway
+    restart: unless-stopped
+    volumes:
+      - ~/.caduceus:/opt/data
+    environment:
+      - CADUCEUS_UID=${CADUCEUS_UID:-10000}
+      - CADUCEUS_GID=${CADUCEUS_GID:-10000}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-https://api.ollama.com}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
+      - SLACK_ALLOWED_USERS=${SLACK_ALLOWED_USERS:-}
+      - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-false}
+      - WHATSAPP_ALLOWED_USERS=${WHATSAPP_ALLOWED_USERS:-}
+      - WHATSAPP_MODE=${WHATSAPP_MODE:-bot}
+    command: ["node", "./dist/cli.js", "gateway", "run"]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: caduceus-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4100:4100"
+    volumes:
+      - ~/.caduceus:/opt/data
+    environment:
+      - CADUCEUS_UID=${CADUCEUS_UID:-10000}
+      - CADUCEUS_GID=${CADUCEUS_GID:-10000}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-https://api.ollama.com}
+    command: ["node", "./dist/cli.js", "web"]
+    profiles:
+      - web
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: caduceus-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8642:8642"
+    volumes:
+      - ~/.caduceus:/opt/data
+    environment:
+      - CADUCEUS_UID=${CADUCEUS_UID:-10000}
+      - CADUCEUS_GID=${CADUCEUS_GID:-10000}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-https://api.ollama.com}
+      - API_SERVER_KEY=${API_SERVER_KEY:-}
+    command: ["node", "./dist/cli.js", "api"]
+    profiles:
+      - api
