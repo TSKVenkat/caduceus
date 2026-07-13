@@ -5,7 +5,7 @@ import { streamSSE } from "hono/streaming";
 import { loadConfig } from "../config";
 import { Conversation } from "../engine/conversation";
 import { buildSession } from "../engine/session";
-import { listSessions, loadSession, newSessionId, saveSession, type StoredSession } from "../engine/store";
+import { listSessions, loadSession, newSessionId, saveSession, deleteSession, type StoredSession } from "../engine/store";
 import { OllamaClient } from "../model/ollama";
 import { PAGE } from "./page";
 
@@ -60,6 +60,17 @@ export function createApp(): Hono {
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({ role: m.role, content: m.content })),
     });
+  });
+
+  app.delete("/api/session/:id", async (c) => {
+    const id = c.req.param("id");
+    const deleted = await deleteSession(SESSIONS_DIR, id);
+    conversations.delete(id);
+    return c.json({ success: deleted });
+  });
+
+  app.get("/api/models", (c) => {
+    return c.json([{ id: process.env.CADUCEUS_MODEL ?? "qwen2.5-coder:14b" }]);
   });
 
   app.get("/api/run", (c) => {
