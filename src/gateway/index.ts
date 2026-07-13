@@ -15,6 +15,9 @@ export { createChatApprover } from "./approval.js";
 
 export { GatewayRunner, gatewayHome } from "./run.js";
 
+export { SlackAdapter } from "./platforms/slack.js";
+export { markdownToMrkdwn, chunkText } from "./platforms/slack-format.js";
+
 export type {
   SessionSource,
   MessageEvent,
