@@ -5,11 +5,12 @@ export function createChatApprover(
   adapter: BasePlatformAdapter,
   chatId: string,
   sessionKey: string,
+  threadId?: string,
   timeoutMs = 60_000,
 ): Approver {
   return async (request: ApprovalRequest): Promise<boolean> => {
     const command = `\`${request.command}\``;
-    await adapter.sendApprovalRequest(chatId, command, sessionKey);
+    await adapter.sendApprovalRequest(chatId, command, sessionKey, threadId);
     return adapter.requestApproval(sessionKey, request.command, timeoutMs);
   };
 }

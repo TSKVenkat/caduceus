@@ -102,6 +102,13 @@ export async function loadGatewayConfig(): Promise<GatewayConfig> {
 function envOverrides(): Record<string, unknown> {
   const env: Record<string, unknown> = {};
 
+  if (process.env.OLLAMA_BASE_URL) {
+    env.baseUrl = process.env.OLLAMA_BASE_URL;
+  }
+  if (process.env.CADUCEUS_MODEL) {
+    env.model = process.env.CADUCEUS_MODEL;
+  }
+
   if (process.env.GATEWAY_ALLOW_ALL_USERS) {
     env.allowAllUsers = process.env.GATEWAY_ALLOW_ALL_USERS === "true";
   }

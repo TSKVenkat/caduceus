@@ -47,7 +47,7 @@ export abstract class BasePlatformAdapter {
   abstract connect(): Promise<boolean>;
   abstract disconnect(): Promise<void>;
   abstract send(chatId: string, content: string, opts?: { replyTo?: string; threadId?: string }): Promise<SendResult>;
-  abstract sendApprovalRequest(chatId: string, command: string, sessionKey: string): Promise<void>;
+  abstract sendApprovalRequest(chatId: string, command: string, sessionKey: string, threadId?: string): Promise<void>;
 
   async editMessage(_chatId: string, _messageId: string, _content: string): Promise<SendResult> {
     return { success: false, error: "editMessage not supported" };

@@ -121,28 +121,34 @@ export class SlackAdapter extends BasePlatformAdapter {
     }
   }
 
-  async sendApprovalRequest(chatId: string, command: string, sessionKey: string): Promise<void> {
+  async sendApprovalRequest(chatId: string, command: string, sessionKey: string, threadId?: string): Promise<void> {
     if (!this._app?.client) return;
 
     const blocks = [
       {
         type: "section",
-        text: { type: "mrkdwn", text: `*Approval needed*\n${command}` },
+        text: { type: "mrkdwn", text: `*Approval needed*\n\`\`\`\n${command}\n\`\`\`` },
       },
       {
         type: "actions",
         elements: [
-          { type: "button", text: { type: "plain_text", text: "Once" }, action_id: "cad_approve_once", value: `${sessionKey}:once`, style: "primary" },
-          { type: "button", text: { type: "plain_text", text: "Session" }, action_id: "cad_approve_session", value: `${sessionKey}:session` },
+          { type: "button", text: { type: "plain_text", text: "Approve" }, action_id: "cad_approve_once", value: `${sessionKey}:once`, style: "primary" },
+          { type: "button", text: { type: "plain_text", text: "Approve session" }, action_id: "cad_approve_session", value: `${sessionKey}:session` },
           { type: "button", text: { type: "plain_text", text: "Deny" }, action_id: "cad_deny", value: `${sessionKey}:deny`, style: "danger" },
         ],
       },
     ];
 
     try {
-      await this._app.client.chat.postMessage({ channel: chatId, blocks, text: `Approval needed: ${command}` });
+      await this._app.client.chat.postMessage({
+        channel: chatId,
+        thread_ts: threadId,
+        blocks,
+        text: `Approval needed: ${command}`,
+        mrkdwn: true,
+      });
     } catch {
-      // best-effort — the text fallback below ensures the user still sees something
+      // best-effort
     }
   }
 
@@ -170,8 +176,8 @@ export class SlackAdapter extends BasePlatformAdapter {
   }
 
   private _registerHandlers(app: SlackAppInterface): void {
-    app.event("message", (args) => this._onMessage(args));
-    app.event("app_mention", (args) => this._onMessage(args));
+    app.event("message", async (args) => { await this._onMessage(args); });
+    app.event("app_mention", async (args) => { await this._onMessage(args); });
     app.action(/^cad_/, (args) => this._onApprovalAction(args));
   }
 
@@ -218,7 +224,9 @@ export class SlackAdapter extends BasePlatformAdapter {
     const channel = String(event.channel ?? "");
     const channelType = String(event.channel_type ?? "");
     const isDm = channelType === "im" || channel.startsWith("D");
-    const threadTs = event.thread_ts ? String(event.thread_ts) : isDm ? String(event.ts ?? "") : String(event.ts ?? "");
+    const threadTs = event.thread_ts
+      ? String(event.thread_ts)
+      : String(event.ts ?? "");
 
     return {
       platform: "slack",
@@ -240,10 +248,11 @@ export class SlackAdapter extends BasePlatformAdapter {
   }
 
   private async _onApprovalAction(args: unknown): Promise<void> {
-    const { ack, action, body } = args as {
+    const { ack, action, body, respond } = args as {
       ack: () => Promise<void>;
       action: { value: string };
-      body: { user?: { id: string }; channel?: { id: string }; message?: { ts: string } };
+      body: { user?: { id: string; name?: string }; channel?: { id: string }; message?: { ts: string }; response_url?: string };
+      respond?: (response: { text: string; replace_original?: boolean }) => Promise<void>;
     };
 
     await ack();
@@ -258,12 +267,20 @@ export class SlackAdapter extends BasePlatformAdapter {
     this.resolveApproval(parsed.sessionKey, parsed.choice);
 
     const label = parsed.choice === "deny" ? "Denied" : `Approved (${parsed.choice})`;
-    if (body.channel?.id && body.message?.ts && this._app?.client) {
+    const userName = body.user?.name ?? body.user?.id ?? "Unknown";
+
+    if (respond && body.response_url) {
+      try {
+        await respond({ text: `*${label}* by ${userName}`, replace_original: true });
+      } catch {
+        // best-effort
+      }
+    } else if (body.channel?.id && body.message?.ts && this._app?.client) {
       try {
         await this._app.client.chat.update({
           channel: body.channel.id,
           ts: body.message.ts,
-          text: label,
+          text: `${label} by ${userName}`,
           blocks: [],
         });
       } catch {

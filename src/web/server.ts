@@ -18,15 +18,11 @@ interface Engine {
   maxSteps: number;
 }
 
-/**
- * A Hermes-style local web server with multi-turn sessions. The agent engine
- * (registry + system prompt + MCP) is built once and reused; each conversation
- * is kept in memory and persisted to disk so it can be resumed.
- */
 export function createApp(): Hono {
   const app = new Hono();
   const conversations = new Map<string, Conversation>();
   let enginePromise: Promise<Engine> | undefined;
+  const stats = { totalRequests: 0, activeConversations: 0, startTime: new Date().toISOString() };
 
   const getEngine = (): Promise<Engine> => {
     if (!enginePromise) {
@@ -46,7 +42,7 @@ export function createApp(): Hono {
 
   app.get("/api/sessions", async (c) => {
     const sessions = await listSessions(SESSIONS_DIR);
-    return c.json(sessions.map((s) => ({ id: s.id, updated: s.updated, title: titleOf(s) })));
+    return c.json(sessions.map((s) => ({ id: s.id, updated: s.updated, title: titleOf(s), messages: s.messages.length, created: s.created })));
   });
 
   app.get("/api/session/:id", async (c) => {
@@ -73,12 +69,22 @@ export function createApp(): Hono {
     return c.json([{ id: process.env.CADUCEUS_MODEL ?? "qwen2.5-coder:14b" }]);
   });
 
+  app.get("/api/stats", () => {
+    return new Response(JSON.stringify({
+      totalRequests: stats.totalRequests,
+      activeConversations: conversations.size,
+      uptime: Date.now() - new Date(stats.startTime).getTime(),
+      startTime: stats.startTime,
+    }), { headers: { "Content-Type": "application/json" } });
+  });
+
   app.get("/api/run", (c) => {
     const task = c.req.query("task")?.trim();
     const sessionId = c.req.query("session")?.trim() || newSessionId();
     if (!task) {
       return c.text("missing ?task", 400);
     }
+    stats.totalRequests++;
     return streamSSE(c, async (stream) => {
       const engine = await getEngine();
       let conversation = conversations.get(sessionId);
@@ -93,6 +99,7 @@ export function createApp(): Hono {
         });
         conversations.set(sessionId, conversation);
       }
+      stats.activeConversations = conversations.size;
 
       let queue: Promise<unknown> = Promise.resolve();
       const emit = (event: string, data: string): void => {
