@@ -124,6 +124,11 @@ write-ups, with verification counts and per-source quality tags, are in
 research that motivated it; [docs/REFERENCES.md](docs/REFERENCES.md) lists the
 sources.
 
+## Slack Connectivity
+Slack Integrations is built and tested successfully. The agent perform really well with web, cli and slack gateway. every trigger in the specific trigger will start a new thread and each slack thread is a new session. Establishing slack gateway requires the user to setup a slack app, and set necessary credentials such as the bot token, app token etc in the env file.
+<img width="678" height="479" alt="image" src="https://github.com/user-attachments/assets/616a97d2-047a-4010-95b8-93a9c198de95" />
+
+
 ## Benchmarks
 
 The standard for a result here is a fair, reproducible measurement with equal
