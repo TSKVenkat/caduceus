@@ -9,3 +9,4 @@ coverage/
 compressor/.venv/
 .caduceus/sessions/
 skills/.hub/
+*.env
