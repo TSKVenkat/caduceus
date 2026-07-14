@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { Conversation } from "../engine/conversation.js";
 import { buildSession } from "../engine/session.js";
 import { OllamaClient } from "../model/ollama.js";
+import type { ToolRegistry } from "../tools/registry.js";
 import type { Message } from "../types.js";
 import type { GatewayConfig } from "./config.js";
 import { loadGatewayConfig } from "./config.js";
@@ -13,11 +14,27 @@ import type { BasePlatformAdapter, MessageHandler } from "./platforms/base.js";
 import { buildSessionKey, isControlCommand } from "./platforms/base.js";
 import type { MessageEvent, SessionSource, StoredMessage } from "./types.js";
 
+const GATEWAY_PREAMBLE = [
+  "You are Caduceus, an autonomous coding agent responding via a messaging platform (Slack/WhatsApp).",
+  "",
+  "Response rules:",
+  "- Be concise. Aim for under 20 lines. Use bullet points over paragraphs.",
+  "- Use Slack-style formatting: `code` for inline code, ``` blocks for multi-line code.",
+  "- When writing code, give the filename and a short snippet — not the entire file.",
+  "- If the task needs multiple steps, list them briefly, then execute.",
+  "- Confirm file changes with the file path and line range.",
+  "- If you need clarification, ask directly — don't guess the user's intent.",
+  "- Use /new to reset the conversation, /stop to pause, /status to check gateway state.",
+  "",
+].join("\n");
+
 interface RunnerState {
   adapters: Map<string, BasePlatformAdapter>;
   conversations: Map<string, Conversation>;
   sessionStore: SessionStore;
   config: GatewayConfig;
+  systemPrompt: string;
+  registry: ToolRegistry;
   shutdown: boolean;
 }
 
@@ -27,6 +44,7 @@ export function gatewayHome(): string {
 
 export class GatewayRunner {
   private _state: RunnerState | null = null;
+  private _shutdownResolve?: () => void;
 
   async start(adapterFactories: Array<() => Promise<BasePlatformAdapter>>): Promise<void> {
     const config = await loadGatewayConfig();
@@ -38,7 +56,8 @@ export class GatewayRunner {
       baseUrl: config.baseUrl,
       model: config.model,
     });
-    const _session = await buildSession({ cwd: process.cwd(), client });
+    const session = await buildSession({ cwd: process.cwd(), client });
+    const systemPrompt = GATEWAY_PREAMBLE + session.systemPrompt;
     const adapters = new Map<string, BasePlatformAdapter>();
 
     const messageHandler: MessageHandler = (event) => this._handleMessage(event);
@@ -50,12 +69,16 @@ export class GatewayRunner {
       adapters.set(name, adapter);
     }
 
-    this._state = { adapters, conversations: new Map(), sessionStore, config, shutdown: false };
+    this._state = { adapters, conversations: new Map(), sessionStore, config, systemPrompt, registry: session.registry, shutdown: false };
 
     process.on("SIGINT", () => void this.stop());
     process.on("SIGTERM", () => void this.stop());
 
     console.log(`Gateway started — ${adapters.size} adapter(s) connected`);
+
+    await new Promise<void>((resolve) => {
+      this._shutdownResolve = resolve;
+    });
   }
 
   async stop(): Promise<void> {
@@ -66,11 +89,12 @@ export class GatewayRunner {
       await adapter.disconnect();
     }
     console.log("Gateway stopped");
+    this._shutdownResolve?.();
   }
 
   private async _handleMessage(event: MessageEvent): Promise<void> {
     if (!this._state) return;
-    const { sessionStore, config, conversations, adapters } = this._state;
+    const { sessionStore, config, conversations, adapters, systemPrompt, registry } = this._state;
 
     const sessionKey = buildSessionKey(event.source, config.groupSessionsPerUser);
     const adapter = _findAdapter(adapters, event.source.platform);
@@ -94,14 +118,14 @@ export class GatewayRunner {
     let conversation = conversations.get(sessionKey);
     if (!conversation) {
       const history = await sessionStore.loadTranscript(entry.sessionId);
-      const client = new OllamaClient({ apiKey: process.env.OLLAMA_API_KEY ?? "", baseUrl: config.baseUrl, model: config.model });
+      const perConvClient = new OllamaClient({ apiKey: process.env.OLLAMA_API_KEY ?? "", baseUrl: config.baseUrl, model: config.model });
       conversation = new Conversation({
-        client,
-        registry: (await buildSession({ cwd: process.cwd(), client })).registry,
-        systemPrompt: "",
+        client: perConvClient,
+        registry,
+        systemPrompt,
         messages: history.length > 0 ? toMessages(history) : undefined,
         maxSteps: config.maxTurns,
-        confirm: createChatApprover(adapter, event.source.chatId, sessionKey),
+        confirm: createChatApprover(adapter, event.source.chatId, sessionKey, event.source.threadId),
       });
       conversations.set(sessionKey, conversation);
     }
