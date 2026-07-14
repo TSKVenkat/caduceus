@@ -8,9 +8,16 @@ export async function runGatewayCli(argv: string[]): Promise<number> {
     case "setup":
       console.error("gateway setup: not yet implemented — see feat/docker-hosting branch");
       return 1;
-    case "status":
-      console.error("gateway status: not yet implemented — see feat/docker-hosting branch");
-      return 1;
+    case "status": {
+      const { getGatewayStatus } = await import("./health.js");
+      const status = await getGatewayStatus();
+      console.log(`Caduceus Gateway Status`);
+      console.log(`  Home:     ${status.home}`);
+      console.log(`  Sessions: ${status.sessions}`);
+      console.log(`  Uptime:   ${Math.round(status.uptime)}s`);
+      console.log(`  Version:  ${status.version}`);
+      return 0;
+    }
     case "stop":
       console.error("gateway stop: not yet implemented");
       return 1;
