@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { Message } from "../types";
 
@@ -47,4 +47,15 @@ export async function loadSession(dir: string, id: string): Promise<StoredSessio
 export async function saveSession(dir: string, session: StoredSession): Promise<void> {
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, `${session.id}.json`), JSON.stringify(session, null, 2), "utf8");
+}
+
+export async function deleteSession(dir: string, id: string): Promise<boolean> {
+  const path = join(dir, `${id}.json`);
+  if (!existsSync(path)) return false;
+  try {
+    await unlink(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
