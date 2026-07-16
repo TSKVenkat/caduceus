@@ -128,6 +128,11 @@ sources.
 Slack Integrations is built and tested successfully. The agent perform really well with web, cli and slack gateway. every trigger in the specific trigger will start a new thread and each slack thread is a new session. Establishing slack gateway requires the user to setup a slack app, and set necessary credentials such as the bot token, app token etc in the env file.
 <img width="678" height="479" alt="image" src="https://github.com/user-attachments/assets/616a97d2-047a-4010-95b8-93a9c198de95" />
 
+Output : 
+
+iOS themed calculator application with accurate calculations
+
+<img width="478" height="633" alt="image" src="https://github.com/user-attachments/assets/2c5bbbc8-700b-4cb6-8539-33ed341d5620" />
 
 ## Benchmarks
 
