@@ -78,15 +78,15 @@ until the model answers or the budget runs out.
 
 ```mermaid
 flowchart TD
-  start(["User message"]) --> build["Assemble tiered prompt"]
-  build --> call["Call model with tool specs"]
-  call --> dec{"Tool calls?"}
+  msg(["User message"]) --> build["Assemble tiered prompt"]
+  build --> invoke["Call model with tool specs"]
+  invoke --> dec{"Tool calls?"}
   dec -- "no" --> done(["Return answer"])
   dec -- "yes" --> exec["Execute each tool"]
   exec --> feed["Append results to history"]
   feed --> guard{"Budget left and under error limit?"}
-  guard -- "yes" --> call
-  guard -- "no" --> stop(["Stop: budget or circuit breaker"])
+  guard -- "yes" --> invoke
+  guard -- "no" --> halt(["Stop: budget or circuit breaker"])
 ```
 
 ## 4. Anatomy of a turn
@@ -135,7 +135,7 @@ every tool subprocess gets a scrubbed environment and optional OS isolation.
 
 ```mermaid
 flowchart TD
-  call(["Tool call"]) --> kind{"bash command?"}
+  invoke(["Tool call"]) --> kind{"bash command?"}
   kind -- "no" --> run
   kind -- "yes" --> classify["Classify risk"]
   classify --> risky{"Dangerous?"}
@@ -156,7 +156,7 @@ the trust level and scan verdict allow it. Provenance is recorded.
 
 ```mermaid
 flowchart TD
-  q["skills install <id>"] --> src{"Source"}
+  q["skills install ID"] --> src{"Source"}
   src -- "GitHub" --> fetch["Fetch files"]
   src -- "URL" --> fetch
   fetch --> quar["Quarantine"]
@@ -180,8 +180,8 @@ flowchart LR
   cfg[".caduceus/mcp.json"] --> conn["Connect (stdio / HTTP)"]
   conn --> list["List tools"]
   list --> reg["Register as mcp__server__tool"]
-  reg --> loop["Available in the loop"]
-  loop -->|"callTool"| server[("MCP server")]
+  reg --> avail["Available in the loop"]
+  avail -->|"callTool"| server[("MCP server")]
 ```
 
 ## 9. On-disk layout
