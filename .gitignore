@@ -10,3 +10,4 @@ compressor/.venv/
 .caduceus/sessions/
 skills/.hub/
 *.env
+slacks-issues.md

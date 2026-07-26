@@ -5,6 +5,7 @@ An open, single-agent **coding agent** that runs on [Ollama Cloud](https://docs.
 TypeScript · pnpm · Ollama Cloud (OpenAI-compatible). Built from scratch; architecture modeled on the Hermes Agent framework.
 
 The design is grounded in a documented research phase. See
+[docs/HLD.md](docs/HLD.md) for the high-level design in diagrams,
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it is built and why,
 [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for what has been measured, and
 [docs/REFERENCES.md](docs/REFERENCES.md) for the sources.
