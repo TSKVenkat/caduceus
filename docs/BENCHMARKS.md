@@ -6,6 +6,41 @@ with equal information given to every condition. One result here was retracted
 after it failed that standard; it is kept below because the retraction is part of
 the record.
 
+## SWE-bench Verified
+
+The field-standard coding-agent benchmark: real, previously-fixed GitHub issues
+from major Python projects, scored by whether the agent's patch makes the
+project's own hidden tests pass (`FAIL_TO_PASS` + `PASS_TO_PASS`) in the official
+Docker harness.
+
+Methodology (the fair way): for each instance the agent runs **inside** that
+instance's Docker environment — dependencies installed, repo at the bug commit —
+so it can read the code, run the tests, and iterate; it is given only the issue
+text. The resulting `git diff` is scored by the official grader. Harness and a
+GitHub Actions matrix that runs it: [../bench/swebench](../bench/swebench).
+
+**Result — random sample of 15 instances, model `glm-5.1` (open):**
+
+```
+resolved: 6/15 = 40.0%   (95% Wilson CI: 19.8%–64.3%)
+```
+
+- Resolved 6 (django ×3, matplotlib, xarray, pytest); 2 produced a patch that
+  failed the tests; 7 exhausted the 40-step budget on large repos (django/sympy)
+  without landing an edit — a real scaffold limitation, not a harness artifact.
+- **Honest caveats.** `n=15` is a small random sample, hence the wide interval.
+  `glm-5.1` is an open, mid-tier model with a general-purpose (not SWE-tuned)
+  scaffold, so this sits well below frontier harnesses (~65% with Claude 4.5
+  Sonnet). SWE-bench Verified is public, so part of any model's score reflects
+  memorization. This is a **sampled estimate**, not a full-500 Verified score.
+- Reproduce or scale (50/100/500) via the CI workflow
+  `.github/workflows/swebench-bench.yml`, or locally per
+  [../bench/swebench/README.md](../bench/swebench/README.md).
+
+> Note: the previous default model `qwen3-coder:480b-cloud` was retired by Ollama
+> Cloud (HTTP 410); the code default is now `qwen3.5:397b`, and this benchmark was
+> run with `glm-5.1`.
+
 ## Prompt compression (LLMLingua)
 
 The compression layer runs the real Microsoft LLMLingua-2 model, not a heuristic
