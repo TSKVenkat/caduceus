@@ -1,6 +1,6 @@
-# Caduceus
+# For interviewers (saves time) : a 10-slide visual walkthrough of the whole project. [View the deck](https://drive.google.com/file/d/1yaqot8II9KR67eJBS2O_8WYeOmuj9QHm/view?usp=sharing)
 
-> **For interviewers (saves time):** a 10-slide visual walkthrough of the whole project. [View the deck](https://drive.google.com/file/d/1yaqot8II9KR67eJBS2O_8WYeOmuj9QHm/view?usp=sharing)
+# Caduceus
 
 An open, single-agent **coding agent** that runs on [Ollama Cloud](https://docs.ollama.com/cloud). Give it a task in your terminal (or browser) and it inspects the workspace, edits files, runs commands, and verifies its work in a bounded reason-act loop — with skills, a knowledge layer, memory, prompt compression, sandboxing, subagents, MCP tools, and a streaming CLI/Web UI.
 
