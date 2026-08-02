@@ -46,10 +46,10 @@ jobs:
           docker-images: false
           swap-storage: true
 
-      - uses: pnpm/action-setup@v4   # reads pnpm version from package.json "packageManager"
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+      - uses: pnpm/action-setup@v4   # reads pnpm version from package.json "packageManager"
       - name: Build Caduceus
         run: |
           pnpm install --no-frozen-lockfile
