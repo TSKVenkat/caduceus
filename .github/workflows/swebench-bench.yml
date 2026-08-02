@@ -14,6 +14,9 @@ on:
       max_steps:
         description: "Agent step budget per instance"
         default: "40"
+      model:
+        description: "Ollama Cloud model id"
+        default: "qwen3.5:397b"
 
 permissions:
   contents: read
@@ -32,6 +35,7 @@ jobs:
       CAD_NODE_DIR: /tmp/cadnode
       BENCH_MAX_STEPS: ${{ github.event.inputs.max_steps }}
       INSTANCES: ${{ github.event.inputs.instances }}
+      CADUCEUS_MODEL: ${{ github.event.inputs.model }}
     steps:
       - uses: actions/checkout@v4
 

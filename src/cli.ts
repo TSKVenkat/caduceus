@@ -151,7 +151,7 @@ function printUsage(): void {
       "  caduceus              Start the interactive TUI (in a terminal)",
       "",
       "Options:",
-      "  --model <id>          Model to use (default: qwen3-coder:480b-cloud)",
+      "  --model <id>          Model to use (default: qwen3.5:397b)",
       "  --max-steps <n>       Maximum loop iterations (default: 20)",
       "  -h, --help            Show this help",
       "",

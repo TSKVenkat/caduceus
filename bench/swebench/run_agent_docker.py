@@ -18,6 +18,7 @@ from swebench.harness.test_spec.test_spec import make_test_spec
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 NODE_DIR = os.environ.get("CAD_NODE_DIR", "/tmp/cadnode")
+MODEL = os.environ.get("CADUCEUS_MODEL", "qwen3.5:397b")
 CONDA_BIN = "/opt/miniconda3/envs/testbed/bin"
 PATH = f"{CONDA_BIN}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -58,7 +59,8 @@ def run_one(x):
         try:
             r = subprocess.run(
                 ["docker", "exec", "-w", "/testbed",
-                 "-e", f"OLLAMA_API_KEY={key}", "-e", "CADUCEUS_SANDBOX=off",
+                 "-e", f"OLLAMA_API_KEY={key}", "-e", f"CADUCEUS_MODEL={MODEL}",
+                 "-e", "CADUCEUS_SANDBOX=off",
                  "-e", "CADUCEUS_APPROVAL=allow", "-e", f"PATH={PATH}", "-e", "HOME=/root",
                  cname, "/cadnode/bin/node", "/caduceus/dist/cli.js", "--max-steps", "40",
                  TASK.format(problem=x["problem_statement"])],
@@ -74,6 +76,9 @@ def run_one(x):
                 "tokens": int(tok.group(1)) if tok else None,
                 "steps": int(stp.group(1)) if stp else None,
                 "patch_lines": diff.count("\n"), "empty_patch": not diff.strip()}
+        if meta["empty_patch"] or meta["tokens"] is None:
+            tail = "\n".join((stderr or "").strip().splitlines()[-8:])
+            print(f"  [!] agent produced no result. CLI stderr tail:\n{tail}\n", flush=True)
         return diff, meta
     finally:
         subprocess.run(["docker", "rm", "-f", cname], capture_output=True)

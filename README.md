@@ -81,7 +81,7 @@ Trusted repos (`anthropics/skills`, `openai/skills`) may install `caution`-rated
 | --- | --- | --- |
 | `OLLAMA_API_KEY` | _required_ | Ollama Cloud API key |
 | `OLLAMA_BASE_URL` | `https://ollama.com/v1` | OpenAI-compatible endpoint |
-| `CADUCEUS_MODEL` | `qwen3-coder:480b-cloud` | Model id |
+| `CADUCEUS_MODEL` | `qwen3.5:397b` | Model id |
 | `CADUCEUS_FALLBACK_MODEL` | _unset_ | Model tried once if the primary keeps failing |
 | `CADUCEUS_MAX_STEPS` | `20` | Loop iteration budget |
 | `CADUCEUS_TEMPERATURE` | `0` | Sampling temperature |

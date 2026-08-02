@@ -15,7 +15,7 @@ export type Config = z.infer<typeof configSchema>;
 
 const DEFAULTS = {
   baseUrl: "https://ollama.com/v1",
-  model: "qwen3-coder:480b-cloud",
+  model: "qwen3.5:397b",
   maxSteps: 20,
   temperature: 0,
   retries: 3,
