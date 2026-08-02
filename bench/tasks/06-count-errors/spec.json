@@ -1,0 +1,3 @@
+{ "id":"06-count-errors", "category":"execution",
+  "prompt":"Count how many lines in the file log.txt contain the uppercase substring ERROR. Write ONLY that count, as digits, into a new file count.txt.",
+  "raw_context":["log.txt"], "raw_output_file":"count.txt" }
