@@ -10,18 +10,14 @@ The design is grounded in a documented research phase. See
 [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for what has been measured, and
 [docs/REFERENCES.md](docs/REFERENCES.md) for the sources.
 
-```text
-step 1
-  call: write_file({"path":"greet.js","content":"console.log('hello from caduceus');"})
-  ok:   write_file
-step 2
-  call: bash({"command":"node greet.js"})
-  ok:   bash
-step 3
-  I created greet.js and ran it; it printed "hello from caduceus".
+## How it works
 
-8253 tokens, 12.3s, 3 steps
-```
+The system prompt is assembled in three tiers — **stable** (identity, tools, skill catalog), **context** (project files, OKF knowledge, memory, artifacts), **volatile** (timestamp) — in that order, so the long prefix stays cache-friendly. Skills and OKF knowledge share one Markdown+frontmatter substrate (`src/markdown/frontmatter.ts`). A `Conversation` keeps history across turns; sessions persist to `.caduceus/sessions`.
+
+- **MCP:** drop a `.caduceus/mcp.json` (`{ "mcpServers": { "name": { "command": "...", "args": [...] } } }` for stdio, or `{ "url": "..." }` for HTTP); tools register as `mcp__<server>__<tool>`.
+- **Approval:** risky shell commands (recursive deletes, piping a download into a shell, `sudo`, writes to system paths, force-push, and similar) are classified and gated. In `prompt` mode the interactive UI asks before running them; `deny` refuses them and lets the agent adapt; `allow` runs everything.
+- **Sandboxing:** secret-looking env vars are stripped from tool subprocesses; with `bwrap` present, shell runs cwd-confined with network off. Without it, `auto` warns and runs unsandboxed.
+- **Compression:** see [`compressor/`](compressor/) for the LLMLingua sidecar setup (`pnpm compress`).
 
 ## Features
 
@@ -96,15 +92,6 @@ Trusted repos (`anthropics/skills`, `openai/skills`) may install `caution`-rated
 | `CADUCEUS_MCP_CONFIG` | `.caduceus/mcp.json` | MCP servers config |
 
 CLI flags `--model` and `--max-steps` override the environment.
-
-## How it works
-
-The system prompt is assembled in three tiers — **stable** (identity, tools, skill catalog), **context** (project files, OKF knowledge, memory, artifacts), **volatile** (timestamp) — in that order, so the long prefix stays cache-friendly. Skills and OKF knowledge share one Markdown+frontmatter substrate (`src/markdown/frontmatter.ts`). A `Conversation` keeps history across turns; sessions persist to `.caduceus/sessions`.
-
-- **MCP:** drop a `.caduceus/mcp.json` (`{ "mcpServers": { "name": { "command": "...", "args": [...] } } }` for stdio, or `{ "url": "..." }` for HTTP); tools register as `mcp__<server>__<tool>`.
-- **Approval:** risky shell commands (recursive deletes, piping a download into a shell, `sudo`, writes to system paths, force-push, and similar) are classified and gated. In `prompt` mode the interactive UI asks before running them; `deny` refuses them and lets the agent adapt; `allow` runs everything.
-- **Sandboxing:** secret-looking env vars are stripped from tool subprocesses; with `bwrap` present, shell runs cwd-confined with network off. Without it, `auto` warns and runs unsandboxed.
-- **Compression:** see [`compressor/`](compressor/) for the LLMLingua sidecar setup (`pnpm compress`).
 
 ## Design and research
 
