@@ -1,9 +1,11 @@
 name: SWE-bench (Caduceus)
 
-# Runs Caduceus on real SWE-bench Verified instances the standard way:
-# the agent runs INSIDE each instance's Docker environment (so it can run the
-# repo's tests), then the official swebench harness scores the resulting patch
-# (FAIL_TO_PASS / PASS_TO_PASS). Manual dispatch; needs the OLLAMA_API_KEY secret.
+# Runs Caduceus on real SWE-bench Verified instances the standard way: the agent
+# runs INSIDE each instance's Docker environment (can run tests), then the
+# official swebench harness scores the patch. Sharded one-instance-per-job so
+# hard instances (django/sympy/...) fit a runner's disk and the 6h limit; a final
+# job aggregates into one resolved-rate with a confidence interval.
+# Manual dispatch; needs the OLLAMA_API_KEY secret.
 
 on:
   workflow_dispatch:
@@ -16,7 +18,7 @@ on:
         default: "40"
       model:
         description: "Ollama Cloud model id"
-        default: "qwen3.5:397b"
+        default: "glm-5.1"
 
 permissions:
   contents: read
@@ -26,88 +28,85 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        env:
+          INSTANCES: ${{ github.event.inputs.instances }}
+        run: |
+          echo "matrix=$(python3 -c "import json,os;print(json.dumps(os.environ['INSTANCES'].split()))")" >> "$GITHUB_OUTPUT"
+
   bench:
+    needs: prep
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        instance: ${{ fromJson(needs.prep.outputs.matrix) }}
     env:
       OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
       HF_HOME: /tmp/hf-cache
       CAD_NODE_DIR: /tmp/cadnode
-      BENCH_MAX_STEPS: ${{ github.event.inputs.max_steps }}
-      INSTANCES: ${{ github.event.inputs.instances }}
       CADUCEUS_MODEL: ${{ github.event.inputs.model }}
+      BENCH_MAX_STEPS: ${{ github.event.inputs.max_steps }}
+      INSTANCE: ${{ matrix.instance }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Verify OLLAMA_API_KEY secret is set
         run: '[ -n "$OLLAMA_API_KEY" ] || { echo "::error::OLLAMA_API_KEY repo secret is not set"; exit 1; }'
-
-      - name: Free disk space for Docker images
+      - name: Free disk space
         uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
-          large-packages: true
-          docker-images: false
-          swap-storage: true
-
+        with: { tool-cache: true, large-packages: true, docker-images: false, swap-storage: true }
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4   # reads pnpm version from package.json "packageManager"
+        with: { node-version: 22 }
+      - uses: pnpm/action-setup@v4
       - name: Build Caduceus
-        run: |
-          pnpm install --no-frozen-lockfile
-          pnpm build
-
-      - name: Portable Node for inside the containers
+        run: pnpm install --no-frozen-lockfile && pnpm build
+      - name: Portable Node for containers
         run: |
           mkdir -p "$CAD_NODE_DIR"
-          curl -sL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-x64.tar.xz \
-            | tar xJ -C "$CAD_NODE_DIR" --strip-components=1
-          "$CAD_NODE_DIR/bin/node" --version
-
+          curl -sL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-x64.tar.xz | tar xJ -C "$CAD_NODE_DIR" --strip-components=1
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+        with: { python-version: "3.12" }
       - name: Install SWE-bench harness
         run: pip install "swebench>=4,<5" datasets
-
-      - name: Build instance Docker images
-        run: python bench/swebench/build_images.py $INSTANCES
-
-      - name: Run Caduceus inside each instance environment
-        run: python bench/swebench/run_agent_docker.py $INSTANCES
-
-      - name: Score with the official harness
+      - name: Build image
+        run: python bench/swebench/build_images.py "$INSTANCE"
+      - name: Run Caduceus in-container
+        run: python bench/swebench/run_agent_docker.py "$INSTANCE"
+      - name: Score
         run: |
           python -m swebench.harness.run_evaluation \
             -d princeton-nlp/SWE-bench_Verified \
             -p bench/swebench/predictions_docker.jsonl \
-            -id caduceus-ci-${{ github.run_id }} \
-            -i $INSTANCES \
-            --max_workers 2 --cache_level env
-
-      - name: Summarize (resolved rate + cost)
-        if: always()
-        run: |
-          report=$(ls caduceus-qwen3coder.caduceus-ci-*.json 2>/dev/null | head -1)
-          echo "## SWE-bench Verified — Caduceus (qwen3-coder)" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "$report" ]; then
-            python bench/swebench/report.py "$report" bench/swebench/agent_meta_docker.json | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "no report produced (see logs)" | tee -a "$GITHUB_STEP_SUMMARY"
-          fi
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload results
+            -id ci -i "$INSTANCE" --max_workers 1 --cache_level env
+      - name: Upload per-instance report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: swebench-results
+          name: report-${{ matrix.instance }}
           path: |
-            bench/swebench/predictions_docker.jsonl
+            caduceus-qwen3coder.ci.json
             bench/swebench/agent_meta_docker.json
-            caduceus-qwen3coder.caduceus-ci-*.json
-            logs/run_evaluation/**
           if-no-files-found: warn
+
+  aggregate:
+    needs: bench
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: report-*
+          path: reports
+      - name: Aggregate resolved rate
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          python3 bench/swebench/aggregate.py $(find reports -name 'caduceus-qwen3coder.ci.json') | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
