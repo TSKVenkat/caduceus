@@ -108,9 +108,8 @@ The system prompt is assembled in three tiers — **stable** (identity, tools, s
 
 ## Design and research
 
-Before any code, two rounds of research established the design. The full
-write-ups, with verification counts and per-source quality tags, are in
-[`docs/`](docs/). The three findings that shaped the system:
+Before any code, two rounds of research established the design. The three
+findings that shaped the system:
 
 - Single agent, not multi-agent: error amplification rises with decentralization,
   and multi-agent systems degrade on coding benchmarks where single-agent

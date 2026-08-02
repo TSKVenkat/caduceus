@@ -2,9 +2,7 @@
 
 The sources behind the design decisions. Each was read during the research
 phase; the architecture notes in [ARCHITECTURE.md](ARCHITECTURE.md) cite these by
-number. Full research write-ups, including how each claim was verified, are in
-[00-RESEARCH-REPORT.md](00-RESEARCH-REPORT.md) and
-[04-RESEARCH-REPORT-R2.md](04-RESEARCH-REPORT-R2.md).
+number.
 
 ## Agent models and tool use
 

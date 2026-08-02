@@ -11,7 +11,7 @@
 > sources), and a concrete recommendation for Caduceus. Bracketed `[Sn]` markers
 > point to the source list at the end. Cross-references like `[ARCH §x]` point
 > to [ARCHITECTURE.md](ARCHITECTURE.md); `[RR2 §x]` to
-> [04-RESEARCH-REPORT-R2.md](04-RESEARCH-REPORT-R2.md).
+> the project research notes.
 
 ---
 
@@ -691,12 +691,12 @@ conventions (TypeScript, ESM, strict, pnpm; small composable tools under
   https://docs.claude.com/en/docs/build-with-claude/prompt-caching
 
 **Internal cross-references:** [ARCHITECTURE.md](ARCHITECTURE.md) ·
-[04-RESEARCH-REPORT-R2.md](04-RESEARCH-REPORT-R2.md) (Hermes Agent framework as
+the project research notes (Hermes Agent framework as
 reference architecture; Ollama Cloud as the OpenAI-compatible backend) ·
 [REFERENCES.md](REFERENCES.md).
 
 **Note on Hermes Agent gateway.** The existing research
-([04-RESEARCH-REPORT-R2.md](04-RESEARCH-REPORT-R2.md) §"Hermes Agent framework")
+(the project research notes §"Hermes Agent framework")
 identifies NousResearch/hermes-agent as the reference architecture and flags
 that its specific backend-mode mechanism was *unverified* in the prior round.
 The gateway patterns above are synthesized from the primary platform/API
