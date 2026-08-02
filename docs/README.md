@@ -8,4 +8,3 @@
   prompt compression), the evaluation methodology, and a retracted result kept
   for the record.
 - [REFERENCES.md](REFERENCES.md) — the sources behind the design decisions.
-- [ROADMAP.md](ROADMAP.md) — planned work.
