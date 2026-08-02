@@ -141,6 +141,13 @@ The standard for a result here is a fair, reproducible measurement with equal
 information given to every condition. Full details, caveats, and a retracted
 result are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
+**SWE-bench Verified** — real GitHub bugs from major Python projects, scored by
+the official Docker grader (the agent runs inside each task's environment and
+must make the project's own hidden tests pass). On a random sample of 15
+instances with an open model (`glm-5.1`), Caduceus resolved **6/15 ≈ 40%** (95%
+CI 19.8–64.3%). A sampled estimate, not a full-500 score; run it via
+[`.github/workflows/swebench-bench.yml`](.github/workflows/swebench-bench.yml).
+
 Prompt compression with the real LLMLingua-2 model, measured in the agent loop on
 a large prose-context task (read a long note, report one planted fact):
 
