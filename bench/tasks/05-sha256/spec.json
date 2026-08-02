@@ -1,0 +1,3 @@
+{ "id":"05-sha256", "category":"execution",
+  "prompt":"Compute the SHA-256 hash of the exact bytes of the file secret.txt and write ONLY its 64-character lowercase hexadecimal digest, with no trailing newline, into a new file result.txt.",
+  "raw_context":["secret.txt"], "raw_output_file":"result.txt" }

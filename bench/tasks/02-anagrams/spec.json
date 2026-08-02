@@ -1,0 +1,3 @@
+{ "id":"02-anagrams", "category":"self-contained",
+  "prompt":"Create anagram.mjs that has `export function groupAnagrams(words)` returning an array of groups, where each group is an array of words that are anagrams of one another. For example groupAnagrams(['eat','tea','tan','ate','nat','bat']) should place eat/tea/ate together, tan/nat together, and bat alone.",
+  "raw_context":[], "raw_output_file":"anagram.mjs" }

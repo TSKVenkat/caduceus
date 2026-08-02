@@ -1,0 +1,47 @@
+line 1: INFO ok
+line 2: INFO ok
+line 3: ERROR something failed
+line 4: INFO ok
+line 5: WARN heads up
+line 6: INFO ok
+line 7: ERROR something failed
+line 8: INFO ok
+line 9: INFO ok
+line 10: ERROR something failed
+line 11: INFO ok
+line 12: WARN heads up
+line 13: INFO ok
+line 14: ERROR something failed
+line 15: INFO ok
+line 16: INFO ok
+line 17: ERROR something failed
+line 18: INFO ok
+line 19: WARN heads up
+line 20: INFO ok
+line 21: ERROR something failed
+line 22: INFO ok
+line 23: INFO ok
+line 24: ERROR something failed
+line 25: INFO ok
+line 26: WARN heads up
+line 27: INFO ok
+line 28: ERROR something failed
+line 29: INFO ok
+line 30: INFO ok
+line 31: ERROR something failed
+line 32: INFO ok
+line 33: WARN heads up
+line 34: INFO ok
+line 35: ERROR something failed
+line 36: INFO ok
+line 37: INFO ok
+line 38: ERROR something failed
+line 39: INFO ok
+line 40: WARN heads up
+line 41: INFO ok
+line 42: ERROR something failed
+line 43: INFO ok
+line 44: INFO ok
+line 45: ERROR something failed
+line 46: INFO ok
+line 47: WARN heads up

@@ -1,0 +1,3 @@
+{ "id":"04-fix-bug", "category":"debug",
+  "prompt":"The file slugify.mjs has a failing test suite (run: node --test). Fix slugify.mjs so all tests in slugify.test.mjs pass. Do not edit the test file.",
+  "raw_context":["slugify.mjs","slugify.test.mjs"], "raw_output_file":"slugify.mjs" }

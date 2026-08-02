@@ -1,0 +1,3 @@
+{ "id":"03-use-helper", "category":"repo-grounded",
+  "prompt":"There is a file money.mjs exporting a function format(cents). Create receipt.mjs with `export function receipt(cents)` that returns the string 'Total: ' immediately followed by the amount formatted by calling the existing format() from ./money.mjs. Reuse format(); do not reimplement its logic.",
+  "raw_context":["money.mjs"], "raw_output_file":"receipt.mjs" }
